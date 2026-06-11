@@ -58,3 +58,4 @@ Avant lancement, copier `.env.example` vers `.env`.
 - `backend/src/controllers`: logique metier HTTP
 - `backend/src/routes`: declaration des endpoints + middlewares
 - `backend/src/middleware`: auth, roles, gestion des erreurs
+# Aluka_game_zone
