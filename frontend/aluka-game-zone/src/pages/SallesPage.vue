@@ -2,7 +2,9 @@
   <q-page class="app-page">
     <div class="page-header">
       <div class="title">Salles & Postes</div>
-      <div class="subtitle">Gestion des salles de jeux et de leurs postes (disponible / occupé)</div>
+      <div class="subtitle">
+        Gestion des salles de jeux et de leurs postes (disponible / occupé)
+      </div>
     </div>
 
     <div class="row q-col-gutter-md q-mb-md">
@@ -95,10 +97,9 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify } from 'quasar'
 import { api } from 'src/services/api'
 
-const $q = useQuasar()
 const salles = ref([])
 const postes = ref([])
 const consoles = ref([])
@@ -140,9 +141,9 @@ async function addSalle() {
     await api.post('/salles', salleForm.value)
     salleForm.value = { nom: '', adresse: '' }
     await refresh()
-    $q.notify({ type: 'positive', message: 'Salle créée' })
+    Notify.create({ type: 'positive', message: 'Salle créée' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
@@ -151,9 +152,9 @@ async function addPoste() {
     await api.post('/postes', posteForm.value)
     posteForm.value = { ...posteForm.value, nomPoste: '', numeroPoste: '' }
     await refresh()
-    $q.notify({ type: 'positive', message: 'Poste ajouté' })
+    Notify.create({ type: 'positive', message: 'Poste ajouté' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 

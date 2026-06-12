@@ -27,7 +27,13 @@
               />
             </div>
             <div class="col-12 col-md-2">
-              <q-input v-model.number="modeleForm.valeur" type="number" label="Valeur" outlined dense />
+              <q-input
+                v-model.number="modeleForm.valeur"
+                type="number"
+                label="Valeur"
+                outlined
+                dense
+              />
             </div>
             <div class="col-12 col-md-2">
               <q-input
@@ -43,7 +49,13 @@
           <q-btn class="btn-dc-primary q-mt-sm" label="Créer modèle" @click="addModele" />
         </div>
 
-        <q-table class="dc-table dc-card" flat :rows="modeles" :columns="modeleColumns" row-key="id">
+        <q-table
+          class="dc-table dc-card"
+          flat
+          :rows="modeles"
+          :columns="modeleColumns"
+          row-key="id"
+        >
           <template #body-cell-description="props">
             <q-td>{{ describeModele(props.row) }}</q-td>
           </template>
@@ -52,7 +64,9 @@
 
       <div class="col-12 col-md-6">
         <div class="dc-card dc-form">
-          <div class="text-subtitle2 q-mb-md" style="color: var(--dc-text)">Affecter à un jeton</div>
+          <div class="text-subtitle2 q-mb-md" style="color: var(--dc-text)">
+            Affecter à un jeton
+          </div>
           <div class="row q-col-gutter-sm items-end">
             <div class="col-12 col-md-5">
               <q-select
@@ -82,7 +96,13 @@
           </div>
         </div>
 
-        <q-table class="dc-table dc-card" flat :rows="affectations" :columns="affectColumns" row-key="id">
+        <q-table
+          class="dc-table dc-card"
+          flat
+          :rows="affectations"
+          :columns="affectColumns"
+          row-key="id"
+        >
           <template #body-cell-regle="props">
             <q-td>{{ describeModele(props.row) }}</q-td>
           </template>
@@ -94,11 +114,10 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify } from 'quasar'
 import { api } from 'src/services/api'
 import { TYPE_MODELE_OPTIONS, describeModele } from 'src/utils/mappers'
 
-const $q = useQuasar()
 const modeles = ref([])
 const affectations = ref([])
 const comptes = ref([])
@@ -146,9 +165,9 @@ async function addModele() {
     await api.post('/paiements/modeles', modeleForm.value)
     modeleForm.value = { nomModele: '', typeModele: 'pourcentage', valeur: 20, seuil: 50000 }
     await refresh()
-    $q.notify({ type: 'positive', message: 'Modèle créé' })
+    Notify.create({ type: 'positive', message: 'Modèle créé' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
@@ -156,9 +175,9 @@ async function addAffectation() {
   try {
     await api.post('/paiements/affectations', affectForm.value)
     await refresh()
-    $q.notify({ type: 'positive', message: 'Affectation enregistrée' })
+    Notify.create({ type: 'positive', message: 'Affectation enregistrée' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 

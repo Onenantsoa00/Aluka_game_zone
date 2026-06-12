@@ -2,9 +2,7 @@
   <q-page class="app-page">
     <div class="page-header">
       <div class="title">Gestion des comptes</div>
-      <div class="subtitle">
-        Admin crée des comptes boss · Boss crée des comptes jeton
-      </div>
+      <div class="subtitle">Admin crée des comptes boss · Boss crée des comptes jeton</div>
     </div>
 
     <div v-if="canCreate" class="dc-card dc-form">
@@ -22,7 +20,15 @@
           <q-input v-model="form.telephone" label="Téléphone" outlined dense />
         </div>
         <div class="col-12 col-md-2">
-          <q-select v-model="form.role" :options="roleOptions" label="Rôle" outlined dense emit-value map-options />
+          <q-select
+            v-model="form.role"
+            :options="roleOptions"
+            label="Rôle"
+            outlined
+            dense
+            emit-value
+            map-options
+          />
         </div>
         <div class="col-12 col-md-1 flex items-center">
           <q-btn class="btn-dc-primary" label="Créer" @click="createAccount" />
@@ -50,11 +56,10 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify } from 'quasar'
 import { api } from 'src/services/api'
 import { useAuthStore } from 'src/stores/auth-store'
 
-const $q = useQuasar()
 const auth = useAuthStore()
 const rows = ref([])
 const form = ref({ nom: '', username: '', motDePasse: '', telephone: '', role: 'jeton' })
@@ -63,10 +68,11 @@ const isAdmin = computed(() => auth.user?.role === 'admin')
 const canCreate = computed(() => ['admin', 'boss'].includes(auth.user?.role))
 
 const roleOptions = computed(() => {
-  if (isAdmin.value) return [
-    { label: 'Boss (entrepreneur)', value: 'boss' },
-    { label: 'Jeton', value: 'jeton' },
-  ]
+  if (isAdmin.value)
+    return [
+      { label: 'Boss (entrepreneur)', value: 'boss' },
+      { label: 'Jeton', value: 'jeton' },
+    ]
   return [{ label: 'Jeton', value: 'jeton' }]
 })
 
@@ -88,9 +94,9 @@ async function createAccount() {
     await api.post('/comptes', form.value)
     form.value = { nom: '', username: '', motDePasse: '', telephone: '', role: 'jeton' }
     await refresh()
-    $q.notify({ type: 'positive', message: 'Compte créé' })
+    Notify.create({ type: 'positive', message: 'Compte créé' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
@@ -98,12 +104,12 @@ async function toggleActif(id, actif) {
   try {
     await api.patch(`/comptes/${id}/actif`, { actif })
     await refresh()
-    $q.notify({
+    Notify.create({
       type: actif ? 'positive' : 'warning',
       message: actif ? 'Compte débloqué' : 'Compte bloqué',
     })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 

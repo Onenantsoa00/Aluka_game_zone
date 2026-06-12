@@ -1,8 +1,6 @@
 <template>
   <q-page class="dashboard-root">
     <main class="main">
-      <TopBar @new-session="showSessionDialog = true" />
-
       <RevenueChart :data="chartData" class="q-mb-md" />
 
       <section>
@@ -48,7 +46,12 @@
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="Annuler" v-close-popup />
-          <q-btn class="btn-dc-primary" label="Démarrer" :loading="starting" @click="startSession" />
+          <q-btn
+            class="btn-dc-primary"
+            label="Démarrer"
+            :loading="starting"
+            @click="startSession"
+          />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -56,18 +59,29 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useQuasar } from 'quasar'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { Notify } from 'quasar'
 import { useRouter } from 'vue-router'
-import TopBar from 'src/components/Dashboard/TopBar.vue'
+import { useUiStore } from 'src/stores/ui-store'
 import GameGrid from 'src/components/Dashboard/GameGrid.vue'
 import RightPanel from 'src/components/Dashboard/RightPanel.vue'
 import RevenueChart from 'src/components/Dashboard/RevenueChart.vue'
 import { api } from 'src/services/api'
 import { mapPosteForCard } from 'src/utils/mappers'
 
-const $q = useQuasar()
 const router = useRouter()
+
+const ui = useUiStore()
+
+watch(
+  () => ui.requestNewSession,
+  (val) => {
+    if (val) {
+      showSessionDialog.value = true
+      ui.clearNewSessionRequest()
+    }
+  },
+)
 
 const postes = ref([])
 const rawPostes = ref([])
@@ -99,9 +113,7 @@ const posteOptions = computed(() =>
     })),
 )
 
-const jeuOptions = computed(() =>
-  jeux.value.map((j) => ({ label: j.nom, value: j.id })),
-)
+const jeuOptions = computed(() => jeux.value.map((j) => ({ label: j.nom, value: j.id })))
 
 function activeSessionForPoste(posteId) {
   return sessions.value.find(
@@ -110,9 +122,7 @@ function activeSessionForPoste(posteId) {
 }
 
 function rebuildPostes() {
-  postes.value = rawPostes.value.map((p) =>
-    mapPosteForCard(p, activeSessionForPoste(p.id)),
-  )
+  postes.value = rawPostes.value.map((p) => mapPosteForCard(p, activeSessionForPoste(p.id)))
 }
 
 async function loadAll() {
@@ -131,7 +141,7 @@ async function loadAll() {
 
 async function startSession() {
   if (!sessionForm.value.posteId) {
-    $q.notify({ type: 'warning', message: 'Sélectionnez un poste' })
+    Notify.create({ type: 'warning', message: 'Sélectionnez un poste' })
     return
   }
   starting.value = true
@@ -140,9 +150,9 @@ async function startSession() {
     showSessionDialog.value = false
     sessionForm.value = { posteId: null, jeuId: null, totalMinutesPaid: 10 }
     await loadAll()
-    $q.notify({ type: 'positive', message: 'Session démarrée' })
+    Notify.create({ type: 'positive', message: 'Session démarrée' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   } finally {
     starting.value = false
   }
@@ -163,7 +173,7 @@ onMounted(async () => {
     refreshTimer = setInterval(loadAll, 30000)
   } catch (e) {
     console.error(e)
-    $q.notify({ type: 'negative', message: 'Impossible de charger le tableau de bord' })
+    Notify.create({ type: 'negative', message: 'Impossible de charger le tableau de bord' })
   }
 })
 

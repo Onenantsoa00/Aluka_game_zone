@@ -16,6 +16,45 @@
   --shadow-2: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
+/* Theme scopes: apply one by adding class `theme-light` or `theme-dark` on the <body> element */
+.theme-light {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --accent: #9ca3af;
+  --text: #0f172a;
+  --text-weak: #6b7280;
+  --input-bg: #ffffff;
+  --input-border: #e6e9ee;
+  --input-text: #0f172a;
+  --placeholder: rgba(15, 23, 42, 0.35);
+  /* dashboard compatibility */
+  --dc-bg: var(--bg);
+  --dc-surface: var(--surface);
+  --dc-accent: var(--accent);
+  --dc-text: var(--text);
+  --dc-text-muted: var(--text-weak);
+  --dc-radius: 12px;
+}
+
+.theme-dark {
+  --bg: #071029;
+  --surface: #0f1f3a;
+  --accent: #4fd1ff;
+  --text: #e6f0ff;
+  --text-weak: #9fb6d6;
+  --input-bg: rgba(255, 255, 255, 0.03);
+  --input-border: rgba(255, 255, 255, 0.06);
+  --input-text: #e6f0ff;
+  --placeholder: rgba(230, 240, 255, 0.35);
+  --link: #4fd1ff;
+  /* dashboard compatibility */
+  --dc-bg: var(--bg);
+  --dc-surface: var(--surface);
+  --dc-accent: var(--accent);
+  --dc-text: var(--text);
+  --dc-text-muted: var(--text-weak);
+  --dc-radius: 12px;
+}
 html,
 body,
 #q-app {
@@ -95,24 +134,39 @@ body {
   border: 1px solid var(--bg);
 }
 
-/* Inputs */
+/* Inputs: style the visible Quasar control element; keep native inputs transparent */
 .q-input__control,
+.q-field__control,
+.q-select__control {
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--input-border);
+  padding: 10px 12px;
+  box-shadow: none;
+  color: var(--input-text);
+}
+.q-input__control:focus,
+.q-field__control:focus,
+.q-select__control:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgba(79, 129, 155, 0.06);
+}
+
+/* Native input element should be transparent to avoid nested boxes */
 input,
 textarea,
 .q-field__native {
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid var(--bg);
-  padding: 10px 12px;
-  box-shadow: none;
-  color: var(--text);
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: var(--input-text) !important;
 }
-.q-input__control:focus,
 input:focus,
-textarea:focus {
+textarea:focus,
+.q-field__native:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 6px 18px rgba(156, 163, 175, 0.08);
 }
 
 /* Header / Navbar */
@@ -179,7 +233,68 @@ a:visited {
 
 /* Inputs placeholder muted but readable */
 ::placeholder {
-  color: rgba(15, 23, 42, 0.35);
+  color: var(--placeholder);
+}
+
+/* Additional responsive input & card tweaks */
+@media (max-width: 768px) {
+  .card,
+  .q-card {
+    padding: 12px;
+  }
+  .game-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .q-input__control,
+  input,
+  textarea,
+  .q-field__native,
+  .q-select__control {
+    padding: 9px 10px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Selection colors for inputs and general text selection */
+::selection {
+  background: var(--accent);
+  color: var(--surface);
+}
+input::selection,
+textarea::selection,
+.q-field__native::selection {
+  background: var(--accent);
+  color: var(--surface);
+}
+
+/* Make active items in Quasar lists readable in both themes */
+.q-item--active,
+.q-item--active .q-item__label,
+.q-item--active .q-item__section {
+  background: var(--accent) !important;
+  color: var(--surface) !important;
+}
+
+/* Ensure all q-select/q-list options use the input text color so every choice is readable */
+.q-menu .q-item,
+.q-list .q-item,
+.q-select__dropdown .q-item,
+.q-menu__content .q-item {
+  color: var(--input-text) !important;
+}
+.q-item__label {
+  color: var(--input-text) !important;
+}
+/* Keep selected item's background but keep label color readable */
+.q-item--active .q-item__label {
+  color: var(--input-text) !important;
+}
+
+/* q-select control value color (ensure selected value is visible) */
+.q-select__control,
+.q-field__native {
+  color: var(--input-text) !important;
 }
 
 /* Responsive spacing tweaks */
@@ -189,6 +304,47 @@ a:visited {
   }
   .page-title {
     font-size: 1.05rem;
+  }
+}
+
+/* Mobile sidebar overlay behavior */
+@media (max-width: 768px) {
+  .app-sidebar {
+    position: fixed !important;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    z-index: 2200;
+    width: 240px;
+    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
+  }
+
+  /* When body has .sidebar-open, show the sidebar */
+  body.sidebar-open .app-sidebar {
+    transform: translateX(0);
+  }
+
+  /* Backdrop element inserted by MainLayout when sidebar is open */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 2100;
+  }
+
+  /* Let content take full width under the overlay */
+  .app-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Reduce sidebar width on very small screens */
+  @media (max-width: 420px) {
+    .app-sidebar {
+      width: 200px;
+    }
   }
 }
 

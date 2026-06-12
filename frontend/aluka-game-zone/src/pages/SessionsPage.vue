@@ -2,7 +2,9 @@
   <q-page class="app-page">
     <div class="page-header">
       <div class="title">Sessions de jeu</div>
-      <div class="subtitle">Démarrer, mettre en pause ou arrêter une session — coupure électricité avec remboursement</div>
+      <div class="subtitle">
+        Démarrer, mettre en pause ou arrêter une session — coupure électricité avec remboursement
+      </div>
     </div>
 
     <div class="dc-card dc-form">
@@ -40,7 +42,12 @@
           />
         </div>
         <div class="col-12 col-md-4">
-          <q-btn class="btn-dc-primary" label="Démarrer session" icon="play_arrow" @click="startSession" />
+          <q-btn
+            class="btn-dc-primary"
+            label="Démarrer session"
+            icon="play_arrow"
+            @click="startSession"
+          />
         </div>
       </div>
     </div>
@@ -101,11 +108,10 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify, Dialog } from 'quasar'
 import { api } from 'src/services/api'
 import { formatAriary } from 'src/utils/mappers'
 
-const $q = useQuasar()
 const rows = ref([])
 const postes = ref([])
 const jeux = ref([])
@@ -155,9 +161,9 @@ async function startSession() {
   try {
     await api.post('/sessions/start', form.value)
     await refresh()
-    $q.notify({ type: 'positive', message: 'Session démarrée' })
+    Notify.create({ type: 'positive', message: 'Session démarrée' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
@@ -173,7 +179,7 @@ async function stop(id, coupureElectricite) {
   const msg = coupureElectricite
     ? 'Arrêter avec coupure électricité (remboursement proportionnel) ?'
     : 'Terminer cette session ?'
-  $q.dialog({
+  Dialog.create({
     title: 'Confirmation',
     message: msg,
     cancel: true,
@@ -182,7 +188,7 @@ async function stop(id, coupureElectricite) {
     const result = await api.post(`/sessions/${id}/stop`, { coupureElectricite })
     await refresh()
     if (coupureElectricite && result.montant_a_rendre > 0) {
-      $q.notify({
+      Notify.create({
         type: 'info',
         message: `À rendre au client : ${formatAriary(result.montant_a_rendre)}`,
       })
@@ -197,7 +203,10 @@ onMounted(async () => {
     jeux.value = j || []
     await refresh()
   } catch (err) {
-    $q.notify({ type: 'negative', message: err.message || 'Impossible de charger les sessions' })
+    Notify.create({
+      type: 'negative',
+      message: err.message || 'Impossible de charger les sessions',
+    })
   }
 })
 </script>

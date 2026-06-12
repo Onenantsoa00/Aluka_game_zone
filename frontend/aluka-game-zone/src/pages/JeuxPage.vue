@@ -26,7 +26,9 @@
 
       <div class="col-12 col-md-6">
         <div class="dc-card dc-form">
-          <div class="text-subtitle2 q-mb-md" style="color: var(--dc-text)">Nouvelle tarification</div>
+          <div class="text-subtitle2 q-mb-md" style="color: var(--dc-text)">
+            Nouvelle tarification
+          </div>
           <div class="row q-col-gutter-sm items-end">
             <div class="col-12 col-md-4">
               <q-select
@@ -41,17 +43,35 @@
               />
             </div>
             <div class="col-12 col-md-3">
-              <q-input v-model.number="tarifForm.dureeMinutes" type="number" label="Durée (min)" outlined dense />
+              <q-input
+                v-model.number="tarifForm.dureeMinutes"
+                type="number"
+                label="Durée (min)"
+                outlined
+                dense
+              />
             </div>
             <div class="col-12 col-md-3">
-              <q-input v-model.number="tarifForm.prix" type="number" label="Prix (Ar)" outlined dense />
+              <q-input
+                v-model.number="tarifForm.prix"
+                type="number"
+                label="Prix (Ar)"
+                outlined
+                dense
+              />
             </div>
             <div class="col-12 col-md-2">
               <q-btn class="btn-dc-primary full-width" label="OK" @click="addTarif" />
             </div>
           </div>
         </div>
-        <q-table class="dc-table dc-card" flat :rows="tarifs" :columns="tarifColumns" row-key="id" />
+        <q-table
+          class="dc-table dc-card"
+          flat
+          :rows="tarifs"
+          :columns="tarifColumns"
+          row-key="id"
+        />
       </div>
     </div>
   </q-page>
@@ -59,20 +79,17 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify } from 'quasar'
 import { api } from 'src/services/api'
 import { formatAriary } from 'src/utils/mappers'
 
-const $q = useQuasar()
 const jeux = ref([])
 const consoles = ref([])
 const tarifs = ref([])
 const jeuForm = ref({ nom: '', genre: '' })
 const tarifForm = ref({ consoleId: null, dureeMinutes: 10, prix: 400 })
 
-const consoleOptions = computed(() =>
-  consoles.value.map((c) => ({ label: c.nom, value: c.id })),
-)
+const consoleOptions = computed(() => consoles.value.map((c) => ({ label: c.nom, value: c.id })))
 
 const jeuColumns = [
   { name: 'id', label: 'ID', field: 'id' },
@@ -98,9 +115,9 @@ async function addJeu() {
     await api.post('/jeux', jeuForm.value)
     jeuForm.value = { nom: '', genre: '' }
     jeux.value = await api.get('/jeux')
-    $q.notify({ type: 'positive', message: 'Jeu ajouté' })
+    Notify.create({ type: 'positive', message: 'Jeu ajouté' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
@@ -108,9 +125,9 @@ async function addTarif() {
   try {
     await api.post('/jeux/tarifications', tarifForm.value)
     await loadTarifs()
-    $q.notify({ type: 'positive', message: 'Tarification ajoutée' })
+    Notify.create({ type: 'positive', message: 'Tarification ajoutée' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 

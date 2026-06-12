@@ -11,8 +11,21 @@ async function request(path, options = {}) {
   }
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
+  // If offline, quickly return an empty result to avoid unhandled exceptions
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    console.warn('Offline: skipping API request', path)
+    return {}
+  }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
+  } catch (err) {
+    // Network/fetch error — return empty object and log
+    if (typeof console !== 'undefined') console.warn('API fetch failed', err)
+    return {}
+  }
+
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
     // Handle unauthorized centrally: clear token and redirect to login

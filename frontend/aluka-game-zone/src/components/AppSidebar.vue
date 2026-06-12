@@ -20,6 +20,7 @@
         :to="item.to"
         class="item"
         active-class="active"
+        @click="closeSidebar"
       >
         <q-icon :name="item.icon" size="20px" />
         <span>{{ item.label }}</span>
@@ -39,9 +40,16 @@ import { useAuthStore } from 'src/stores/auth-store'
 
 const auth = useAuthStore()
 const router = useRouter()
+import { useUiStore } from 'src/stores/ui-store'
+const ui = useUiStore()
 
 const allItems = [
-  { to: '/dashboard', label: 'Tableau de bord', icon: 'dashboard', roles: ['admin', 'boss', 'jeton'] },
+  {
+    to: '/dashboard',
+    label: 'Tableau de bord',
+    icon: 'dashboard',
+    roles: ['admin', 'boss', 'jeton'],
+  },
   { to: '/sessions', label: 'Sessions', icon: 'play_circle', roles: ['admin', 'boss', 'jeton'] },
   { to: '/salles', label: 'Salles & Postes', icon: 'meeting_room', roles: ['admin', 'boss'] },
   { to: '/jeux', label: 'Jeux & Tarifs', icon: 'gamepad', roles: ['admin', 'boss'] },
@@ -65,6 +73,10 @@ const visibleItems = computed(() => {
 function logout() {
   auth.logout()
   router.push('/login')
+}
+
+function closeSidebar() {
+  ui.closeSidebar()
 }
 </script>
 

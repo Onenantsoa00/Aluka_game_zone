@@ -8,10 +8,27 @@
     <div v-if="canManage" class="dc-card dc-form">
       <div class="row q-col-gutter-md items-end">
         <div class="col-12 col-md-2">
-          <q-select v-model="form.salleId" :options="salleOptions" label="Salle" outlined dense emit-value map-options />
+          <q-select
+            v-model="form.salleId"
+            :options="salleOptions"
+            label="Salle"
+            outlined
+            dense
+            emit-value
+            map-options
+          />
         </div>
         <div class="col-12 col-md-2">
-          <q-select v-model="form.jeuId" :options="jeuOptions" label="Jeu" outlined dense emit-value map-options clearable />
+          <q-select
+            v-model="form.jeuId"
+            :options="jeuOptions"
+            label="Jeu"
+            outlined
+            dense
+            emit-value
+            map-options
+            clearable
+          />
         </div>
         <div class="col-12 col-md-2">
           <q-input v-model="form.nom" label="Nom du tournoi" outlined dense />
@@ -43,12 +60,11 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify, Dialog } from 'quasar'
 import { api } from 'src/services/api'
 import { useAuthStore } from 'src/stores/auth-store'
 import { formatAriary } from 'src/utils/mappers'
 
-const $q = useQuasar()
 const auth = useAuthStore()
 const rows = ref([])
 const salles = ref([])
@@ -84,20 +100,20 @@ async function createTournoi() {
     await api.post('/tournois', form.value)
     form.value = { ...form.value, nom: '', mise: 0, recompense: '' }
     await refresh()
-    $q.notify({ type: 'positive', message: 'Tournoi créé' })
+    Notify.create({ type: 'positive', message: 'Tournoi créé' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
 function addParticipant(tournoi) {
-  $q.dialog({
+  Dialog.create({
     title: `Inscrire un joueur — ${tournoi.nom}`,
     prompt: { model: '', label: 'Nom du joueur' },
     cancel: true,
   }).onOk(async (nom) => {
     await api.post(`/tournois/${tournoi.id}/participants`, { nomJoueur: nom })
-    $q.notify({ type: 'positive', message: 'Participant inscrit' })
+    Notify.create({ type: 'positive', message: 'Participant inscrit' })
   })
 }
 

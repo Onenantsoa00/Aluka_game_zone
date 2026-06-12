@@ -2,7 +2,9 @@
   <q-page class="app-page">
     <div class="page-header">
       <div class="title">Abonnements</div>
-      <div class="subtitle">Gestion manuelle des abonnements boss — débloquer ou bloquer un compte</div>
+      <div class="subtitle">
+        Gestion manuelle des abonnements boss — débloquer ou bloquer un compte
+      </div>
     </div>
 
     <div class="dc-card dc-form">
@@ -26,7 +28,13 @@
           <q-input v-model="form.dateFin" type="date" label="Fin" outlined dense />
         </div>
         <div class="col-12 col-md-2">
-          <q-input v-model.number="form.montant" type="number" label="Montant (Ar)" outlined dense />
+          <q-input
+            v-model.number="form.montant"
+            type="number"
+            label="Montant (Ar)"
+            outlined
+            dense
+          />
         </div>
         <div class="col-12 col-md-3">
           <q-input v-model="form.commentaire" label="Commentaire" outlined dense />
@@ -64,11 +72,10 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify, Dialog } from 'quasar'
 import { api } from 'src/services/api'
 import { formatAriary } from 'src/utils/mappers'
 
-const $q = useQuasar()
 const rows = ref([])
 const comptes = ref([])
 const form = ref({
@@ -80,9 +87,7 @@ const form = ref({
 })
 
 const bossOptions = computed(() =>
-  comptes.value
-    .filter((c) => c.role === 'boss')
-    .map((c) => ({ label: c.nom, value: c.id })),
+  comptes.value.filter((c) => c.role === 'boss').map((c) => ({ label: c.nom, value: c.id })),
 )
 
 const columns = [
@@ -103,19 +108,17 @@ async function createAbonnement() {
   try {
     await api.post('/abonnements', form.value)
     await refresh()
-    $q.notify({ type: 'positive', message: 'Abonnement créé' })
+    Notify.create({ type: 'positive', message: 'Abonnement créé' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
 async function toggleBoss(bossId, actif) {
-  const msg = actif
-    ? 'Débloquer ce compte boss ?'
-    : 'Bloquer ce compte boss (abonnement impayé) ?'
-  $q.dialog({ title: 'Confirmation', message: msg, cancel: true }).onOk(async () => {
+  const msg = actif ? 'Débloquer ce compte boss ?' : 'Bloquer ce compte boss (abonnement impayé) ?'
+  Dialog.create({ title: 'Confirmation', message: msg, cancel: true }).onOk(async () => {
     await api.patch(`/abonnements/boss/${bossId}/blocage`, { actif })
-    $q.notify({
+    Notify.create({
       type: actif ? 'positive' : 'warning',
       message: actif ? 'Compte débloqué' : 'Compte bloqué',
     })

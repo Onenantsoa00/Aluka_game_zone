@@ -8,7 +8,14 @@
 
       <div class="dc-form q-gutter-md">
         <q-input v-model="username" label="Identifiant" outlined dark color="cyan" />
-        <q-input v-model="motDePasse" label="Mot de passe" type="password" outlined dark color="cyan" />
+        <q-input
+          v-model="motDePasse"
+          label="Mot de passe"
+          type="password"
+          outlined
+          dark
+          color="cyan"
+        />
       </div>
 
       <q-btn
@@ -27,11 +34,10 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify } from 'quasar'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth-store'
 
-const $q = useQuasar()
 const router = useRouter()
 const auth = useAuthStore()
 
@@ -45,7 +51,7 @@ async function submit() {
     await auth.login(username.value, motDePasse.value)
     await router.push('/dashboard')
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   } finally {
     loading.value = false
   }

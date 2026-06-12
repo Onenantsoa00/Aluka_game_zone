@@ -43,7 +43,9 @@
     <q-table class="dc-table dc-card" flat :rows="rows" :columns="columns" row-key="id">
       <template #body-cell-stock="props">
         <q-td>
-          <span :class="props.row.quantite <= props.row.stock_minimum ? 'badge-low-stock' : 'badge-ok'">
+          <span
+            :class="props.row.quantite <= props.row.stock_minimum ? 'badge-low-stock' : 'badge-ok'"
+          >
             {{ props.row.quantite }} / min {{ props.row.stock_minimum }}
           </span>
         </q-td>
@@ -51,7 +53,13 @@
       <template #body-cell-actions="props">
         <q-td>
           <q-btn dense flat icon="add" color="positive" @click="mouvement(props.row, 'entree')" />
-          <q-btn dense flat icon="remove" color="negative" @click="mouvement(props.row, 'sortie')" />
+          <q-btn
+            dense
+            flat
+            icon="remove"
+            color="negative"
+            @click="mouvement(props.row, 'sortie')"
+          />
         </q-td>
       </template>
     </q-table>
@@ -60,10 +68,9 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { Notify, Dialog } from 'quasar'
 import { api } from 'src/services/api'
 
-const $q = useQuasar()
 const rows = ref([])
 const salles = ref([])
 const form = ref({
@@ -75,9 +82,7 @@ const form = ref({
   etat: 'bon',
 })
 
-const salleOptions = computed(() =>
-  salles.value.map((s) => ({ label: s.nom, value: s.id })),
-)
+const salleOptions = computed(() => salles.value.map((s) => ({ label: s.nom, value: s.id })))
 
 const columns = [
   { name: 'id', label: 'ID', field: 'id' },
@@ -97,14 +102,14 @@ async function addMateriel() {
     await api.post('/materiels', form.value)
     form.value = { ...form.value, nom: '', categorie: '', quantite: 0 }
     await refresh()
-    $q.notify({ type: 'positive', message: 'Matériel ajouté' })
+    Notify.create({ type: 'positive', message: 'Matériel ajouté' })
   } catch (error) {
-    $q.notify({ type: 'negative', message: error.message })
+    Notify.create({ type: 'negative', message: error.message })
   }
 }
 
 function mouvement(row, type) {
-  $q.dialog({
+  Dialog.create({
     title: type === 'entree' ? 'Entrée stock' : 'Sortie stock',
     prompt: { model: '1', type: 'number', label: 'Quantité' },
     cancel: true,
