@@ -11,9 +11,13 @@ const routes = [
       { path: '', redirect: '/dashboard' },
       { path: '/dashboard', component: () => import('pages/DashboardPage.vue') },
       { path: '/sessions', component: () => import('pages/SessionsPage.vue') },
+      { path: '/salles', component: () => import('pages/SallesPage.vue') },
+      { path: '/jeux', component: () => import('pages/JeuxPage.vue') },
       { path: '/comptes', component: () => import('pages/ComptesPage.vue') },
       { path: '/materiels', component: () => import('pages/MaterielsPage.vue') },
       { path: '/tournois', component: () => import('pages/TournoisPage.vue') },
+      { path: '/paiements', component: () => import('pages/PaiementsPage.vue') },
+      { path: '/abonnements', component: () => import('pages/AbonnementsPage.vue'), meta: { roles: ['admin'] } },
     ],
   },
 

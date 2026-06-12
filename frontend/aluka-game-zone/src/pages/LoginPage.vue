@@ -1,21 +1,27 @@
 <template>
-  <div class="row justify-center items-center bg-grey-2 login-wrapper">
-    <q-card style="width: 380px">
-      <q-card-section>
-        <div class="text-h6">Connexion</div>
-        <div class="text-caption text-grey-7">Application de gestion salle de jeux</div>
-      </q-card-section>
-      <q-card-section class="q-gutter-md">
-        <q-input v-model="username" label="Username" outlined />
-        <q-input v-model="motDePasse" label="Mot de passe" type="password" outlined />
-      </q-card-section>
-      <q-card-actions align="right">
-        <q-btn color="primary" :loading="loading" label="Se connecter" @click="submit" />
-      </q-card-actions>
-      <q-card-section class="text-caption text-grey-7">
-        Compte par defaut: admin / admin123
-      </q-card-section>
-    </q-card>
+  <div class="login-dark">
+    <div class="login-card">
+      <div class="text-h5 q-mb-xs" style="color: var(--dc-accent)">Aluka Game Zone</div>
+      <div class="text-caption q-mb-lg" style="color: var(--dc-text-muted)">
+        Gestion de salles de jeux — suivi des recettes
+      </div>
+
+      <div class="dc-form q-gutter-md">
+        <q-input v-model="username" label="Identifiant" outlined dark color="cyan" />
+        <q-input v-model="motDePasse" label="Mot de passe" type="password" outlined dark color="cyan" />
+      </div>
+
+      <q-btn
+        class="btn-dc-primary full-width q-mt-lg"
+        :loading="loading"
+        label="Se connecter"
+        @click="submit"
+      />
+
+      <div class="text-caption q-mt-md" style="color: var(--dc-text-muted)">
+        Compte admin par défaut : admin / admin123
+      </div>
+    </div>
   </div>
 </template>
 
@@ -45,9 +51,3 @@ async function submit() {
   }
 }
 </script>
-
-<style scoped>
-.login-wrapper {
-  min-height: 100vh;
-}
-</style>

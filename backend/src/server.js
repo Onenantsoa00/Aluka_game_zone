@@ -12,6 +12,8 @@ import sessionsRoutes from "./routes/sessions.js";
 import materielsRoutes from "./routes/materiels.js";
 import tournoisRoutes from "./routes/tournois.js";
 import abonnementsRoutes from "./routes/abonnements.js";
+import consolesRoutes from "./routes/consoles.js";
+import paiementsRoutes from "./routes/paiements.js";
 import { requireAuth } from "./middleware/auth.js";
 
 const app = express();
@@ -32,6 +34,8 @@ app.use("/api/sessions", sessionsRoutes);
 app.use("/api/materiels", materielsRoutes);
 app.use("/api/tournois", tournoisRoutes);
 app.use("/api/abonnements", abonnementsRoutes);
+app.use("/api/consoles", consolesRoutes);
+app.use("/api/paiements", paiementsRoutes);
 
 app.use((error, _req, res, _next) => {
   const statusCode = error.statusCode || 500;

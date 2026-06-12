@@ -31,8 +31,8 @@ body {
     Roboto,
     'Helvetica Neue',
     Arial;
-  background: linear-gradient(180deg, #f8fafc 0%, var(--bg) 100%);
-  color: var(--text);
+  background: var(--dc-bg, #0f1f3a);
+  color: var(--dc-text, var(--text));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -199,3 +199,5 @@ a:visited {
 }
 
 /* End of app global css */
+
+@import './dashboard-dark.scss';

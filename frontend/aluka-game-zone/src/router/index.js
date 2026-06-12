@@ -38,6 +38,10 @@ export default defineRouter((/* { store, ssrContext } */) => {
     const auth = useAuthStore()
     if (to.meta.requiresAuth && !auth.isLoggedIn) return '/login'
     if (to.path === '/login' && auth.isLoggedIn) return '/dashboard'
+    const roles = to.meta.roles
+    if (roles && auth.user?.role && !roles.includes(auth.user.role)) {
+      return '/dashboard'
+    }
     return true
   })
 

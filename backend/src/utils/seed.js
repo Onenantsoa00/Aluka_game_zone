@@ -63,10 +63,27 @@ async function seed() {
   await query(
     `
     INSERT INTO consoles (nom, marque, description)
-    VALUES
+    SELECT v.nom, v.marque, v.description
+    FROM (VALUES
       ('PS3', 'Sony', 'Console PlayStation 3'),
-      ('PS4', 'Sony', 'Console PlayStation 4')
-    ON CONFLICT DO NOTHING
+      ('PS4', 'Sony', 'Console PlayStation 4'),
+      ('PS5', 'Sony', 'Console PlayStation 5')
+    ) AS v(nom, marque, description)
+    WHERE NOT EXISTS (SELECT 1 FROM consoles c WHERE c.nom = v.nom)
+    `,
+  );
+
+  await query(
+    `
+    INSERT INTO modeles_paiement_jeton (nom_modele, type_modele, valeur, seuil, description)
+    SELECT v.nom, v.type, v.val, v.seuil, v.desc
+    FROM (VALUES
+      ('Tiers recette', 'fraction', 0.33, NULL::numeric, 'Le jeton reçoit 1/3 de la recette'),
+      ('20% recette', 'pourcentage', 20, NULL::numeric, 'Le jeton reçoit 20% de la recette'),
+      ('Fixe 3000/jour', 'fixe_journalier', 3000, NULL::numeric, 'Salaire fixe 3000 Ar par jour'),
+      ('10% après 50k', 'pourcentage_seuil', 10, 50000, '10% après 50 000 Ar de recette')
+    ) AS v(nom, type, val, seuil, desc)
+    WHERE NOT EXISTS (SELECT 1 FROM modeles_paiement_jeton m WHERE m.nom_modele = v.nom)
     `,
   );
 

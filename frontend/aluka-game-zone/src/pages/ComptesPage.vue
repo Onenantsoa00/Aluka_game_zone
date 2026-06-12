@@ -1,43 +1,82 @@
 <template>
-  <q-page padding>
-    <div class="text-h5 q-mb-md">Gestion des comptes</div>
-    <q-card class="modern-card q-mb-md">
-      <q-card-section class="row q-col-gutter-sm">
-        <div class="col-12 col-md-4"><q-input dense v-model="form.nom" label="Nom" /></div>
+  <q-page class="app-page">
+    <div class="page-header">
+      <div class="title">Gestion des comptes</div>
+      <div class="subtitle">
+        Admin crée des comptes boss · Boss crée des comptes jeton
+      </div>
+    </div>
+
+    <div v-if="canCreate" class="dc-card dc-form">
+      <div class="row q-col-gutter-md">
         <div class="col-12 col-md-3">
-          <q-input dense v-model="form.username" label="Username" />
-        </div>
-        <div class="col-12 col-md-3">
-          <q-input dense v-model="form.motDePasse" type="password" label="Mot de passe" />
+          <q-input v-model="form.nom" label="Nom complet" outlined dense />
         </div>
         <div class="col-12 col-md-2">
-          <q-select dense v-model="form.role" :options="roles" label="Role" />
+          <q-input v-model="form.username" label="Identifiant" outlined dense />
         </div>
-      </q-card-section>
-      <q-card-actions align="right">
-        <q-btn class="bg-primary" label="Creer compte" @click="createAccount" />
-      </q-card-actions>
-    </q-card>
+        <div class="col-12 col-md-2">
+          <q-input v-model="form.motDePasse" type="password" label="Mot de passe" outlined dense />
+        </div>
+        <div class="col-12 col-md-2">
+          <q-input v-model="form.telephone" label="Téléphone" outlined dense />
+        </div>
+        <div class="col-12 col-md-2">
+          <q-select v-model="form.role" :options="roleOptions" label="Rôle" outlined dense emit-value map-options />
+        </div>
+        <div class="col-12 col-md-1 flex items-center">
+          <q-btn class="btn-dc-primary" label="Créer" @click="createAccount" />
+        </div>
+      </div>
+    </div>
 
-    <q-table :rows="rows" :columns="columns" row-key="id" />
+    <q-table class="dc-table dc-card" flat :rows="rows" :columns="columns" row-key="id">
+      <template #body-cell-actif="props">
+        <q-td>
+          <q-toggle
+            v-if="isAdmin && props.row.role === 'boss'"
+            :model-value="props.row.actif"
+            color="cyan"
+            @update:model-value="toggleActif(props.row.id, $event)"
+          />
+          <span v-else :class="props.row.actif ? 'badge-ok' : 'badge-low-stock'">
+            {{ props.row.actif ? 'Actif' : 'Bloqué' }}
+          </span>
+        </q-td>
+      </template>
+    </q-table>
   </q-page>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { api } from 'src/services/api'
+import { useAuthStore } from 'src/stores/auth-store'
 
 const $q = useQuasar()
+const auth = useAuthStore()
 const rows = ref([])
-const roles = ['boss', 'jeton']
-const form = ref({ nom: '', username: '', motDePasse: '', role: 'jeton' })
+const form = ref({ nom: '', username: '', motDePasse: '', telephone: '', role: 'jeton' })
+
+const isAdmin = computed(() => auth.user?.role === 'admin')
+const canCreate = computed(() => ['admin', 'boss'].includes(auth.user?.role))
+
+const roleOptions = computed(() => {
+  if (isAdmin.value) return [
+    { label: 'Boss (entrepreneur)', value: 'boss' },
+    { label: 'Jeton', value: 'jeton' },
+  ]
+  return [{ label: 'Jeton', value: 'jeton' }]
+})
+
 const columns = [
   { name: 'id', label: 'ID', field: 'id' },
   { name: 'nom', label: 'Nom', field: 'nom' },
-  { name: 'username', label: 'Username', field: 'username' },
-  { name: 'role', label: 'Role', field: 'role' },
-  { name: 'actif', label: 'Actif', field: 'actif' },
+  { name: 'username', label: 'Identifiant', field: 'username' },
+  { name: 'telephone', label: 'Téléphone', field: 'telephone' },
+  { name: 'role', label: 'Rôle', field: 'role' },
+  { name: 'actif', label: 'Statut', field: 'actif' },
 ]
 
 async function refresh() {
@@ -47,19 +86,26 @@ async function refresh() {
 async function createAccount() {
   try {
     await api.post('/comptes', form.value)
-    form.value = { nom: '', username: '', motDePasse: '', role: 'jeton' }
+    form.value = { nom: '', username: '', motDePasse: '', telephone: '', role: 'jeton' }
     await refresh()
+    $q.notify({ type: 'positive', message: 'Compte créé' })
   } catch (error) {
     $q.notify({ type: 'negative', message: error.message })
   }
 }
 
-onMounted(async () => {
+async function toggleActif(id, actif) {
   try {
+    await api.patch(`/comptes/${id}/actif`, { actif })
     await refresh()
-  } catch (err) {
-    console.error('Comptes load failed', err)
-    $q.notify({ type: 'negative', message: err.message || 'Impossible de charger les comptes' })
+    $q.notify({
+      type: actif ? 'positive' : 'warning',
+      message: actif ? 'Compte débloqué' : 'Compte bloqué',
+    })
+  } catch (error) {
+    $q.notify({ type: 'negative', message: error.message })
   }
-})
+}
+
+onMounted(refresh)
 </script>
