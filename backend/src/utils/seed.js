@@ -78,7 +78,7 @@ async function seed() {
     INSERT INTO modeles_paiement_jeton (nom_modele, type_modele, valeur, seuil, description)
     SELECT v.nom, v.type, v.val, v.seuil, v.desc
     FROM (VALUES
-      ('Tiers recette', 'fraction', 0.33, NULL::numeric, 'Le jeton reçoit 1/3 de la recette'),
+      ('Tiers recette', 'fraction', 0.3333, NULL::numeric, 'Le jeton reçoit 1/3 de la recette'),
       ('20% recette', 'pourcentage', 20, NULL::numeric, 'Le jeton reçoit 20% de la recette'),
       ('Fixe 3000/jour', 'fixe_journalier', 3000, NULL::numeric, 'Salaire fixe 3000 Ar par jour'),
       ('10% après 50k', 'pourcentage_seuil', 10, 50000, '10% après 50 000 Ar de recette')

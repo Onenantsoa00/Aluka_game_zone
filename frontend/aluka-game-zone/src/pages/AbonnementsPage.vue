@@ -1,16 +1,17 @@
 <template>
   <q-page class="app-page">
-    <div class="page-header">
-      <div class="title">Abonnements</div>
-      <div class="subtitle">
-        Gestion manuelle des abonnements boss — débloquer ou bloquer un compte
-      </div>
-    </div>
+    <UiPageHeader
+      title="Abonnements"
+      subtitle="Gestion manuelle des abonnements boss : enregistrer une période payée et débloquer ou bloquer un compte."
+    >
+      <template #actions>
+        <UiButton variant="ghost" icon="refresh" label="Actualiser" :loading="loading" @click="refresh" />
+      </template>
+    </UiPageHeader>
 
-    <div class="dc-card dc-form">
-      <div class="text-subtitle2 q-mb-md" style="color: var(--dc-text)">Nouvel abonnement</div>
+    <UiCard title="Nouvel abonnement" hint="Le blocage coupe immédiatement l'accès du boss." class="q-mb-lg">
       <div class="row q-col-gutter-md items-end">
-        <div class="col-12 col-md-2">
+        <div class="col-12 col-sm-2">
           <q-select
             v-model="form.bossId"
             :options="bossOptions"
@@ -21,52 +22,71 @@
             map-options
           />
         </div>
-        <div class="col-12 col-md-2">
-          <q-input v-model="form.dateDebut" type="date" label="Début" outlined dense />
+        <div class="col-6 col-sm-2">
+          <q-input v-model="form.dateDebut" type="date" label="Début" outlined stack-label dense />
         </div>
-        <div class="col-12 col-md-2">
-          <q-input v-model="form.dateFin" type="date" label="Fin" outlined dense />
+        <div class="col-6 col-sm-2">
+          <q-input v-model="form.dateFin" type="date" label="Fin" outlined stack-label dense />
         </div>
-        <div class="col-12 col-md-2">
-          <q-input
-            v-model.number="form.montant"
-            type="number"
-            label="Montant (Ar)"
-            outlined
-            dense
-          />
+        <div class="col-6 col-sm-2">
+          <q-input v-model.number="form.montant" type="number" label="Montant" suffix="Ar" outlined dense />
         </div>
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-sm-2">
           <q-input v-model="form.commentaire" label="Commentaire" outlined dense />
         </div>
-        <div class="col-12 col-md-1">
-          <q-btn class="btn-dc-primary full-width" label="Créer" @click="createAbonnement" />
+        <div class="col-12 col-sm-2">
+          <UiButton
+            icon="card_membership"
+            label="Créer"
+            :loading="saving"
+            class="full-width"
+            @click="createAbonnement"
+          />
         </div>
       </div>
-    </div>
+    </UiCard>
 
-    <q-table class="dc-table dc-card" flat :rows="rows" :columns="columns" row-key="id">
-      <template #body-cell-actions="props">
+    <UiTable
+      :rows="rows"
+      :columns="columns"
+      row-key="id"
+      :loading="loading"
+      empty-icon="card_membership"
+      empty-title="Aucun abonnement"
+      empty-text="Enregistrez la période payée par un boss pour activer son compte."
+    >
+      <template #body-cell-montant="props">
         <q-td>
-          <q-btn
-            dense
-            flat
-            icon="lock_open"
-            color="positive"
-            title="Débloquer le boss"
-            @click="toggleBoss(props.row.boss_id, true)"
-          />
-          <q-btn
-            dense
-            flat
-            icon="lock"
-            color="negative"
-            title="Bloquer le boss (impayé)"
-            @click="toggleBoss(props.row.boss_id, false)"
+          <span class="num">{{ formatAriary(props.row.montant) }}</span>
+        </q-td>
+      </template>
+      <template #body-cell-actif="props">
+        <q-td>
+          <UiBadge
+            :tone="props.row.actif ? 'ok' : 'danger'"
+            :label="props.row.actif ? 'Actif' : 'Bloqué'"
           />
         </q-td>
       </template>
-    </q-table>
+      <template #body-cell-actions="props">
+        <q-td>
+          <div class="row-tight" style="justify-content: center">
+            <UiButton
+              variant="icon"
+              icon="lock_open"
+              tooltip="Débloquer ce boss"
+              @click="toggleBoss(props.row.boss_id, true)"
+            />
+            <UiButton
+              variant="icon"
+              icon="lock"
+              tooltip="Bloquer ce boss (impayé)"
+              @click="toggleBoss(props.row.boss_id, false)"
+            />
+          </div>
+        </q-td>
+      </template>
+    </UiTable>
   </q-page>
 </template>
 
@@ -75,9 +95,12 @@ import { computed, onMounted, ref } from 'vue'
 import { Notify, Dialog } from 'quasar'
 import { api } from 'src/services/api'
 import { formatAriary } from 'src/utils/mappers'
+import { UiBadge, UiButton, UiCard, UiPageHeader, UiTable } from 'src/components/ui'
 
 const rows = ref([])
 const comptes = ref([])
+const loading = ref(false)
+const saving = ref(false)
 const form = ref({
   bossId: null,
   dateDebut: new Date().toISOString().slice(0, 10),
@@ -91,43 +114,67 @@ const bossOptions = computed(() =>
 )
 
 const columns = [
-  { name: 'boss_nom', label: 'Boss', field: 'boss_nom' },
-  { name: 'date_debut', label: 'Début', field: 'date_debut' },
-  { name: 'date_fin', label: 'Fin', field: 'date_fin' },
-  { name: 'montant', label: 'Montant', field: 'montant', format: (v) => formatAriary(v) },
-  { name: 'actif', label: 'Actif', field: 'actif', format: (v) => (v ? 'Oui' : 'Non') },
-  { name: 'commentaire', label: 'Note', field: 'commentaire' },
-  { name: 'actions', label: 'Compte', field: 'actions' },
+  { name: 'boss_nom', label: 'Boss', field: 'boss_nom', align: 'left' },
+  { name: 'date_debut', label: 'Début', field: 'date_debut', align: 'left' },
+  { name: 'date_fin', label: 'Fin', field: 'date_fin', align: 'left' },
+  { name: 'montant', label: 'Montant', field: 'montant', align: 'right' },
+  { name: 'actif', label: 'Statut', field: 'actif', align: 'left' },
+  { name: 'commentaire', label: 'Note', field: 'commentaire', align: 'left' },
+  { name: 'actions', label: 'Compte', field: 'actions', align: 'center' },
 ]
 
 async function refresh() {
-  rows.value = await api.get('/abonnements')
+  loading.value = true
+  try {
+    const [a, c] = await Promise.all([api.get('/abonnements'), api.get('/comptes')])
+    rows.value = Array.isArray(a) ? a : []
+    comptes.value = Array.isArray(c) ? c : []
+    if (bossOptions.value.length && !form.value.bossId) {
+      form.value.bossId = bossOptions.value[0].value
+    }
+  } catch (error) {
+    Notify.create({ type: 'negative', message: error.message })
+  } finally {
+    loading.value = false
+  }
 }
 
 async function createAbonnement() {
+  if (!form.value.bossId) {
+    Notify.create({ type: 'warning', message: 'Sélectionnez un boss' })
+    return
+  }
+  saving.value = true
   try {
     await api.post('/abonnements', form.value)
     await refresh()
     Notify.create({ type: 'positive', message: 'Abonnement créé' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
+  } finally {
+    saving.value = false
   }
 }
 
-async function toggleBoss(bossId, actif) {
-  const msg = actif ? 'Débloquer ce compte boss ?' : 'Bloquer ce compte boss (abonnement impayé) ?'
-  Dialog.create({ title: 'Confirmation', message: msg, cancel: true }).onOk(async () => {
-    await api.patch(`/abonnements/boss/${bossId}/blocage`, { actif })
-    Notify.create({
-      type: actif ? 'positive' : 'warning',
-      message: actif ? 'Compte débloqué' : 'Compte bloqué',
-    })
+function toggleBoss(bossId, actif) {
+  Dialog.create({
+    title: 'Confirmation',
+    message: actif ? 'Débloquer ce compte boss ?' : 'Bloquer ce compte boss (abonnement impayé) ?',
+    cancel: true,
+    persistent: true,
+  }).onOk(async () => {
+    try {
+      await api.patch(`/abonnements/boss/${bossId}/blocage`, { actif })
+      await refresh()
+      Notify.create({
+        type: actif ? 'positive' : 'warning',
+        message: actif ? 'Compte débloqué' : 'Compte bloqué',
+      })
+    } catch (error) {
+      Notify.create({ type: 'negative', message: error.message })
+    }
   })
 }
 
-onMounted(async () => {
-  comptes.value = await api.get('/comptes')
-  if (bossOptions.value.length) form.value.bossId = bossOptions.value[0].value
-  await refresh()
-})
+onMounted(refresh)
 </script>

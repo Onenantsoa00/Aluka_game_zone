@@ -1,52 +1,86 @@
 <template>
   <header class="topbar">
-    <div style="display: flex; gap: 12px; align-items: center">
-      <q-btn flat round dense class="mobile-menu" @click="toggleSidebar">
-        <q-icon name="menu" />
-      </q-btn>
+    <div class="row-tight">
+      <q-btn
+        class="mobile-menu btn-icon"
+        flat
+        round
+        dense
+        icon="menu"
+        aria-label="Ouvrir le menu"
+        @click="ui.toggleSidebar"
+      />
       <div>
-        <div class="title">Gestion de Salle de Jeux</div>
-        <div class="muted">Tableau central · Vue en temps réel</div>
+        <div class="topbar-title">{{ pageTitle }}</div>
+        <div class="topbar-sub">{{ today }} · Données synchronisées toutes les 30 s</div>
       </div>
     </div>
-    <div style="display: flex; gap: 8px; align-items: center">
-      <q-btn flat round dense @click="toggleTheme">
-        <q-icon :name="themeIcon" />
+
+    <div class="topbar-actions">
+      <q-btn
+        class="btn-icon"
+        flat
+        round
+        dense
+        :icon="themeIcon"
+        :aria-label="theme.theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'"
+        @click="theme.toggle()"
+      >
+        <q-tooltip :delay="400">Changer de thème</q-tooltip>
       </q-btn>
-      <q-btn class="btn-new" unelevated @click="requestNewSession">+ Nouvelle session</q-btn>
+
+      <UiButton icon="add" label="Nouvelle session" @click="newSession" />
     </div>
   </header>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useThemeStore } from 'src/stores/theme-store'
+import { useUiStore } from 'src/stores/ui-store'
+import { UiButton } from 'src/components/ui'
 
 const theme = useThemeStore()
-const toggleTheme = () => theme.toggle()
+const ui = useUiStore()
+const route = useRoute()
+const router = useRouter()
+
+const titles = {
+  '/dashboard': 'Tableau de bord',
+  '/sessions': 'Sessions de jeu',
+  '/reservations': "File d'attente & réservations",
+  '/salles': 'Salles & Postes',
+  '/jeux': 'Jeux & Tarifs',
+  '/materiels': 'Matériels',
+  '/tournois': 'Tournois',
+  '/comptes': 'Comptes',
+  '/paiements': 'Paiements jeton',
+  '/caisse': 'Caisse — rapport Z',
+  '/abonnements': 'Abonnements',
+  '/audit': "Journal d'audit",
+  '/ui-kit': 'Design system',
+}
+
+const pageTitle = computed(() => titles[route.path] || 'Aluka Game Zone')
 const themeIcon = computed(() => (theme.theme === 'dark' ? 'light_mode' : 'dark_mode'))
 
-import { useUiStore } from 'src/stores/ui-store'
-const ui = useUiStore()
-const toggleSidebar = () => ui.toggleSidebar()
-const requestNewSession = () => ui.requestNewSessionOpen()
+const today = computed(() =>
+  new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date()),
+)
+
+function newSession() {
+  ui.requestNewSessionOpen()
+  if (route.path !== '/dashboard') router.push('/dashboard')
+}
 </script>
 
 <style scoped>
-.muted {
-  color: var(--dc-text-muted);
-  font-size: 0.9rem;
-}
-.btn-new {
-  font-weight: 700;
-}
 .mobile-menu {
   display: none;
-}
-
-@media (max-width: 768px) {
-  .mobile-menu {
-    display: inline-flex;
-  }
 }
 </style>

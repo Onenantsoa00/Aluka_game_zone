@@ -2,11 +2,9 @@ import { defineStore } from 'pinia'
 
 export const useThemeStore = defineStore('theme', {
   state: () => ({
-    theme:
-      localStorage.getItem('agz_theme') ||
-      (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light'),
+    // Le design system est pensé "dark premium" : sombre par défaut,
+    // le clair reste disponible via le bouton du TopBar.
+    theme: localStorage.getItem('agz_theme') || 'dark',
   }),
   actions: {
     apply() {

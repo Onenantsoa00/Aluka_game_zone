@@ -42,11 +42,32 @@ export const useAuthStore = defineStore('auth', {
         console.warn('Failed to persist auth state to localStorage', err)
       }
     },
+    /** Met a jour le store apres un refresh de jeton (api.js). */
+    setSession({ token, user }) {
+      if (token) this.token = token
+      if (user) this.user = user
+      try {
+        if (token) localStorage.setItem('agz_token', token)
+        if (user) localStorage.setItem('agz_user', JSON.stringify(user))
+      } catch (err) {
+        console.warn('Failed to persist refreshed auth state', err)
+      }
+    },
+    /** Revoque le jeton cote serveur (token_version) puis vide le local. */
     logout() {
+      const token = this.token
       this.token = null
       this.user = null
       localStorage.removeItem('agz_token')
       localStorage.removeItem('agz_user')
+      if (token) {
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {
+          // Hors ligne : le jeton local est deja supprime.
+        })
+      }
     },
   },
 })

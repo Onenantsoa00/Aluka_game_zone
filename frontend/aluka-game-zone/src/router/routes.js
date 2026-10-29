@@ -1,3 +1,6 @@
+const ALL_ROLES = ['admin', 'boss', 'jeton']
+const MANAGEMENT_ROLES = ['admin', 'boss']
+
 const routes = [
   {
     path: '/login',
@@ -9,18 +12,70 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: '', redirect: '/dashboard' },
-      { path: 'dashboard', component: () => import('pages/DashboardPage.vue') },
-      { path: 'sessions', component: () => import('pages/SessionsPage.vue') },
-      { path: 'salles', component: () => import('pages/SallesPage.vue') },
-      { path: 'jeux', component: () => import('pages/JeuxPage.vue') },
-      { path: 'comptes', component: () => import('pages/ComptesPage.vue') },
-      { path: 'materiels', component: () => import('pages/MaterielsPage.vue') },
-      { path: 'tournois', component: () => import('pages/TournoisPage.vue') },
-      { path: 'paiements', component: () => import('pages/PaiementsPage.vue') },
+      {
+        path: 'dashboard',
+        component: () => import('pages/DashboardPage.vue'),
+        meta: { roles: ALL_ROLES },
+      },
+      {
+        path: 'sessions',
+        component: () => import('pages/SessionsPage.vue'),
+        meta: { roles: ALL_ROLES },
+      },
+      {
+        path: 'reservations',
+        component: () => import('pages/ReservationsPage.vue'),
+        meta: { roles: ALL_ROLES },
+      },
+      {
+        path: 'salles',
+        component: () => import('pages/SallesPage.vue'),
+        meta: { roles: MANAGEMENT_ROLES },
+      },
+      {
+        path: 'jeux',
+        component: () => import('pages/JeuxPage.vue'),
+        meta: { roles: MANAGEMENT_ROLES },
+      },
+      {
+        path: 'comptes',
+        component: () => import('pages/ComptesPage.vue'),
+        meta: { roles: MANAGEMENT_ROLES },
+      },
+      {
+        path: 'materiels',
+        component: () => import('pages/MaterielsPage.vue'),
+        meta: { roles: ALL_ROLES },
+      },
+      {
+        path: 'tournois',
+        component: () => import('pages/TournoisPage.vue'),
+        meta: { roles: ALL_ROLES },
+      },
+      {
+        path: 'paiements',
+        component: () => import('pages/PaiementsPage.vue'),
+        meta: { roles: MANAGEMENT_ROLES },
+      },
+      {
+        path: 'caisse',
+        component: () => import('pages/CaissePage.vue'),
+        meta: { roles: MANAGEMENT_ROLES },
+      },
       {
         path: 'abonnements',
         component: () => import('pages/AbonnementsPage.vue'),
         meta: { roles: ['admin'] },
+      },
+      {
+        path: 'audit',
+        component: () => import('pages/AuditPage.vue'),
+        meta: { roles: ['admin'] },
+      },
+      {
+        path: 'ui-kit',
+        component: () => import('pages/UiKitPage.vue'),
+        meta: { roles: ALL_ROLES },
       },
     ],
   },

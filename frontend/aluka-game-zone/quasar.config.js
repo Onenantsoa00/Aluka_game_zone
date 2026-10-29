@@ -81,7 +81,7 @@ export default defineConfig((/* ctx */) => {
       config: {},
 
       // iconSet: 'material-icons', // Quasar icon set
-      // lang: 'en-US', // Quasar language pack
+      lang: 'fr', // pack de langue : tables, dialogues et pagination en français
 
       // For special cases outside of where the auto-import strategy can have an impact
       // (like functional components as one of the examples),
@@ -90,8 +90,9 @@ export default defineConfig((/* ctx */) => {
       // components: [],
       // directives: [],
 
-      // Quasar plugins
-      plugins: [],
+      // Quasar plugins — Notify et Dialog sont utilisés sur (presque) toutes les pages.
+      // Sans cette déclaration, Notify.create()/Dialog.create() lèvent une erreur à l'exécution.
+      plugins: ['Notify', 'Dialog'],
     },
 
     // animations: 'all', // --- includes all animations

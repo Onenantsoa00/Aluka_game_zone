@@ -1,34 +1,62 @@
 <template>
-  <aside class="sidebar app-sidebar">
-    <div class="logo">
-      <q-icon name="sports_esports" size="22px" color="cyan-4" />
-      <span>Aluka Game Zone</span>
-    </div>
+  <aside class="app-sidebar">
+    <router-link to="/dashboard" class="sidebar-brand" @click="closeSidebar">
+      <span class="brand-mark">
+        <q-icon name="sports_esports" size="20px" />
+      </span>
+      <span class="brand-text">
+        <span class="brand-name">Aluka</span>
+        <span class="brand-sub">Game Zone</span>
+      </span>
+    </router-link>
 
-    <div v-if="auth.user" class="user-badge">
-      <q-icon name="person" size="16px" />
-      <div>
-        <div class="user-name">{{ auth.user.nom || auth.user.username }}</div>
-        <div class="user-role">{{ roleLabel }}</div>
+    <nav class="sidebar-nav">
+      <template v-for="group in groups" :key="group.label">
+        <div v-if="group.items.length" class="sidebar-section">{{ group.label }}</div>
+        <router-link
+          v-for="item in group.items"
+          :key="item.to"
+          :to="item.to"
+          class="nav-item"
+          active-class="active"
+          @click="closeSidebar"
+        >
+          <q-icon :name="item.icon" size="18px" />
+          <span>{{ item.label }}</span>
+          <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+        </router-link>
+      </template>
+    </nav>
+
+    <div v-if="auth.user" class="sidebar-user">
+      <span class="avatar">{{ initials }}</span>
+      <div class="who">
+        <strong>{{ auth.user.nom || auth.user.username }}</strong>
+        <span>{{ roleLabel }}</span>
       </div>
     </div>
 
-    <nav class="menu">
-      <router-link
-        v-for="item in visibleItems"
-        :key="item.to"
-        :to="item.to"
-        class="item"
-        active-class="active"
-        @click="closeSidebar"
-      >
-        <q-icon :name="item.icon" size="20px" />
-        <span>{{ item.label }}</span>
-      </router-link>
-    </nav>
-
     <div class="sidebar-footer">
-      <q-btn flat dense icon="logout" label="Déconnexion" class="logout-btn" @click="logout" />
+      <q-btn
+        flat
+        dense
+        icon="palette"
+        label="Design system"
+        class="btn-subtle full-width"
+        style="justify-content: flex-start"
+        to="/ui-kit"
+        @click="closeSidebar"
+      />
+      <q-btn
+        flat
+        dense
+        icon="logout"
+        class="btn-subtle"
+        aria-label="Se déconnecter"
+        @click="logout"
+      >
+        <q-tooltip :delay="400">Se déconnecter</q-tooltip>
+      </q-btn>
     </div>
   </aside>
 </template>
@@ -37,41 +65,85 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth-store'
+import { useUiStore } from 'src/stores/ui-store'
+import { closeRealtime } from 'src/services/realtime'
 
 const auth = useAuthStore()
-const router = useRouter()
-import { useUiStore } from 'src/stores/ui-store'
 const ui = useUiStore()
+const router = useRouter()
 
-const allItems = [
+const navGroups = [
   {
-    to: '/dashboard',
-    label: 'Tableau de bord',
-    icon: 'dashboard',
-    roles: ['admin', 'boss', 'jeton'],
+    label: 'Pilotage',
+    items: [
+      {
+        to: '/dashboard',
+        label: 'Tableau de bord',
+        icon: 'space_dashboard',
+        roles: ['admin', 'boss', 'jeton'],
+      },
+    ],
   },
-  { to: '/sessions', label: 'Sessions', icon: 'play_circle', roles: ['admin', 'boss', 'jeton'] },
-  { to: '/salles', label: 'Salles & Postes', icon: 'meeting_room', roles: ['admin', 'boss'] },
-  { to: '/jeux', label: 'Jeux & Tarifs', icon: 'gamepad', roles: ['admin', 'boss'] },
-  { to: '/materiels', label: 'Matériels', icon: 'inventory_2', roles: ['admin', 'boss', 'jeton'] },
-  { to: '/tournois', label: 'Tournois', icon: 'emoji_events', roles: ['admin', 'boss', 'jeton'] },
-  { to: '/comptes', label: 'Comptes', icon: 'groups', roles: ['admin', 'boss'] },
-  { to: '/paiements', label: 'Paiements jeton', icon: 'payments', roles: ['admin', 'boss'] },
-  { to: '/abonnements', label: 'Abonnements', icon: 'card_membership', roles: ['admin'] },
+  {
+    label: 'Exploitation',
+    items: [
+      { to: '/sessions', label: 'Sessions', icon: 'play_circle', roles: ['admin', 'boss', 'jeton'] },
+      {
+        to: '/reservations',
+        label: "File d'attente",
+        icon: 'event_seat',
+        roles: ['admin', 'boss', 'jeton'],
+      },
+      { to: '/salles', label: 'Salles & Postes', icon: 'meeting_room', roles: ['admin', 'boss'] },
+      { to: '/jeux', label: 'Jeux & Tarifs', icon: 'gamepad', roles: ['admin', 'boss'] },
+      {
+        to: '/materiels',
+        label: 'Matériels',
+        icon: 'inventory_2',
+        roles: ['admin', 'boss', 'jeton'],
+      },
+      { to: '/tournois', label: 'Tournois', icon: 'emoji_events', roles: ['admin', 'boss', 'jeton'] },
+    ],
+  },
+  {
+    label: 'Gestion',
+    items: [
+      { to: '/comptes', label: 'Comptes', icon: 'groups', roles: ['admin', 'boss'] },
+      { to: '/paiements', label: 'Paiements jeton', icon: 'payments', roles: ['admin', 'boss'] },
+      { to: '/caisse', label: 'Caisse (Z)', icon: 'point_of_sale', roles: ['admin', 'boss'] },
+      { to: '/abonnements', label: 'Abonnements', icon: 'card_membership', roles: ['admin'] },
+      { to: '/audit', label: "Journal d'audit", icon: 'history', roles: ['admin'] },
+    ],
+  },
 ]
 
+const groups = computed(() => {
+  const role = auth.user?.role || 'jeton'
+  return navGroups.map((group) => ({
+    label: group.label,
+    items: group.items.filter((item) => item.roles.includes(role)),
+  }))
+})
+
 const roleLabel = computed(() => {
-  const map = { admin: 'Administrateur', boss: 'Entrepreneur', jeton: 'Jeton' }
+  const map = { admin: 'Administrateur', boss: 'Entrepreneur', jeton: 'Opérateur' }
   return map[auth.user?.role] || auth.user?.role || ''
 })
 
-const visibleItems = computed(() => {
-  const role = auth.user?.role || 'jeton'
-  return allItems.filter((it) => it.roles.includes(role))
+const initials = computed(() => {
+  const name = auth.user?.nom || auth.user?.username || '?'
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('')
 })
 
 function logout() {
   auth.logout()
+  closeRealtime()
+  ui.closeSidebar()
   router.push('/login')
 }
 
@@ -79,77 +151,3 @@ function closeSidebar() {
   ui.closeSidebar()
 }
 </script>
-
-<style scoped>
-.app-sidebar {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  width: 240px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  border-radius: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
-  border-left: none;
-  border-top: none;
-  border-bottom: none;
-}
-
-.user-badge {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 10px;
-  margin: 12px 0;
-  border-radius: 10px;
-  background: rgba(79, 209, 255, 0.06);
-  color: var(--dc-text-muted);
-  font-size: 0.85rem;
-}
-.user-name {
-  color: var(--dc-text);
-  font-weight: 600;
-}
-.user-role {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--dc-accent);
-}
-
-.menu {
-  flex: 1;
-}
-.menu .item {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: var(--dc-text-muted);
-  text-decoration: none;
-  transition: all 0.18s ease;
-  margin-bottom: 4px;
-}
-.menu .item.active {
-  background: rgba(79, 209, 255, 0.1);
-  color: var(--dc-accent);
-  box-shadow: var(--dc-neon);
-}
-.menu .item:hover {
-  transform: translateX(4px);
-  color: var(--dc-text);
-}
-
-.sidebar-footer {
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-.logout-btn {
-  color: var(--dc-text-muted);
-  width: 100%;
-  justify-content: flex-start;
-}
-</style>

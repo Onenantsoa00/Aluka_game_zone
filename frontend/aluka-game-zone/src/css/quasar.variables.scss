@@ -1,36 +1,27 @@
 // Quasar Sass (& SCSS) Variables
 // --------------------------------------------------
-// To customize the look and feel of this app, you can override
-// the Sass/SCSS variables found in Quasar's source Sass/SCSS files.
+// Source unique des couleurs Quasar. Les tokens runtime (CSS variables) sont
+// dans src/css/app.scss et reprennent exactement ces valeurs.
 
-// Check documentation for full list of Quasar variables
+$primary: #2dd4e8; // cyan premium — action principale
+$secondary: #7c6bff; // indigo — accents / graphiques
+$accent: #14b8d4;
 
-// Your own variables (that are declared here) and Quasar's own
-// ones will be available out of the box in your .vue/.scss/.sass files
+$dark: #eaf1fb;
+$dark-page: #05070e;
 
-// It's highly recommended to change the default colors
-// to match your app's branding.
-// Tip: Use the "Theme Builder" on Quasar's documentation website.
+$positive: #3ddc97;
+$negative: #ff6b6b;
+$info: #5aa9ff;
+$warning: #f5b544;
 
-$primary: #4b5563; // slate-600 — main neutral accent
-$secondary: #6b7280; // gray-500 — complementary neutral
-$accent: #9ca3af; // gray-400 — subtle highlights
+// Neutres sombres (mode pro premium)
+$bg-50: #0b111e;
+$bg-100: #080b14;
+$bg-200: #0f1626;
+$surface: #0d1423;
 
-$dark: #111827; // darker neutral for text
-$dark-page: #0f172a;
-
-$positive: #16a34a;
-$negative: #ef4444;
-$info: #0ea5e9;
-$warning: #f59e0b;
-
-// Additional greys for app use
-$bg-50: #fafafb;
-$bg-100: #f3f4f6;
-$bg-200: #e5e7eb;
-$surface: #f8fafc;
-
-// Text / accessibility
-$text: #0f172a; // strong text color (contrast)
-$text-weak: #6b7280; // secondary / muted text
-$link: #0ea5e9; // links / interactive accents
+// Texte / accessibilité
+$text: #eaf1fb;
+$text-weak: #a3b2c9;
+$link: #2dd4e8;

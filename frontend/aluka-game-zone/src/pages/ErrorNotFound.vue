@@ -1,9 +1,25 @@
 <template>
-  <div class="login-dark text-center q-pa-md flex flex-center">
+  <div class="notfound">
     <div>
-      <div style="font-size: 12rem; color: var(--dc-accent); font-weight: 700">404</div>
-      <div class="text-h5" style="color: var(--dc-text-muted)">Page introuvable</div>
-      <q-btn class="btn-dc-primary q-mt-xl" unelevated to="/dashboard" label="Retour au tableau de bord" />
+      <div class="code">404</div>
+      <div class="ui-page-header" style="justify-content: center; margin-bottom: 0">
+        <div>
+          <div class="title" style="font-size: 20px">Page introuvable</div>
+          <div class="subtitle" style="text-align: center">
+            Cette page n'existe pas ou a été déplacée.
+          </div>
+        </div>
+      </div>
+      <UiButton
+        class="q-mt-lg"
+        icon="arrow_back"
+        label="Retour au tableau de bord"
+        to="/dashboard"
+      />
     </div>
   </div>
 </template>
+
+<script setup>
+import { UiButton } from 'src/components/ui'
+</script>
