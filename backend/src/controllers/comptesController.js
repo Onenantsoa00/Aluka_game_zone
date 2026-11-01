@@ -10,6 +10,7 @@ import {
 } from '../models/comptesModel.js'
 import { clientIp, logAudit } from '../utils/audit.js'
 import { httpError, translateDbError } from '../utils/errors.js'
+import { createTrialForBoss } from '../services/abonnement.js'
 
 const VALID_ROLES = ['admin', 'boss', 'jeton']
 
@@ -68,6 +69,9 @@ export async function postCompte(req, res) {
   } catch (error) {
     throw translateDbError(error)
   }
+
+  // Chaque nouveau boss demarre son essai gratuit de 7 jours (P2.11).
+  if (role === 'boss') await createTrialForBoss(created.id)
 
   await logAudit({
     userId: req.user.id,

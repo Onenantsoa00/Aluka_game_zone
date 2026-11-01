@@ -6,6 +6,7 @@ import { pool, query } from './config/db.js'
 import { initRealtime } from './realtime.js'
 import { startMaintenance, stopMaintenance } from './services/maintenance.js'
 import { requireAuth } from './middleware/auth.js'
+import { requireSubscription } from './middleware/subscription.js'
 import { translateDbError } from './utils/errors.js'
 import authRoutes from './routes/auth.js'
 import dashboardRoutes from './routes/dashboard.js'
@@ -23,6 +24,7 @@ import rapportsRoutes from './routes/rapports.js'
 import auditRoutes from './routes/audit.js'
 import reservationsRoutes from './routes/reservations.js'
 import fileAttenteRoutes from './routes/file-attente.js'
+import monAbonnementRoutes from './routes/mon-abonnement.js'
 
 const app = express()
 
@@ -51,21 +53,26 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api/auth', authRoutes)
 
 app.use('/api', requireAuth)
-app.use('/api/dashboard', dashboardRoutes)
-app.use('/api/comptes', comptesRoutes)
-app.use('/api/salles', sallesRoutes)
-app.use('/api/postes', postesRoutes)
-app.use('/api/jeux', jeuxRoutes)
-app.use('/api/sessions', sessionsRoutes)
-app.use('/api/materiels', materielsRoutes)
-app.use('/api/tournois', tournoisRoutes)
+
+// Facturation : accessible meme si l'abonnement est expire (sinon impossible
+// de regulariser). Toutes les autres routes metier sont bloquees en 402.
+app.use('/api/mon-abonnement', monAbonnementRoutes)
 app.use('/api/abonnements', abonnementsRoutes)
-app.use('/api/consoles', consolesRoutes)
-app.use('/api/paiements', paiementsRoutes)
-app.use('/api/rapports', rapportsRoutes)
-app.use('/api/audit', auditRoutes)
-app.use('/api/reservations', reservationsRoutes)
-app.use('/api/file-attente', fileAttenteRoutes)
+
+app.use('/api/dashboard', requireSubscription, dashboardRoutes)
+app.use('/api/comptes', requireSubscription, comptesRoutes)
+app.use('/api/salles', requireSubscription, sallesRoutes)
+app.use('/api/postes', requireSubscription, postesRoutes)
+app.use('/api/jeux', requireSubscription, jeuxRoutes)
+app.use('/api/sessions', requireSubscription, sessionsRoutes)
+app.use('/api/materiels', requireSubscription, materielsRoutes)
+app.use('/api/tournois', requireSubscription, tournoisRoutes)
+app.use('/api/consoles', requireSubscription, consolesRoutes)
+app.use('/api/paiements', requireSubscription, paiementsRoutes)
+app.use('/api/rapports', requireSubscription, rapportsRoutes)
+app.use('/api/audit', requireSubscription, auditRoutes)
+app.use('/api/reservations', requireSubscription, reservationsRoutes)
+app.use('/api/file-attente', requireSubscription, fileAttenteRoutes)
 
 app.use('/api', (_req, res) => res.status(404).json({ message: 'Route introuvable' }))
 

@@ -5,6 +5,8 @@ import {
   deleteFileAttente,
   deleteReservation,
   findConflict,
+  findFileAttenteBossId,
+  findReservationBossId,
   listFileAttente,
   listReservations,
   updateFileAttenteStatut,
@@ -12,6 +14,7 @@ import {
 } from '../models/reservationsModel.js'
 import { clientIp, logAudit } from '../utils/audit.js'
 import { httpError } from '../utils/errors.js'
+import { assertSalleAccess, assertTenant, bossIdForPoste } from '../utils/tenant.js'
 
 const STATUTS_RESERVATION = ['reservee', 'honoree', 'annulee', 'expiree']
 const STATUTS_FILE = ['en_attente', 'appele', 'installe', 'annule']
@@ -20,6 +23,7 @@ export async function getReservations(req, res) {
   const rows = await listReservations({
     date: req.query.date || null,
     statut: STATUTS_RESERVATION.includes(req.query.statut) ? req.query.statut : null,
+    tenantId: req.user.tenantId,
   })
   return res.json(rows)
 }
@@ -34,10 +38,12 @@ export async function postReservation(req, res) {
   }
 
   const { rows } = await query(
-    'SELECT id, actif FROM postes WHERE id=$1',
+    `SELECT p.id, p.actif, s.boss_id FROM postes p
+     JOIN salles s ON s.id=p.salle_id WHERE p.id=$1`,
     [posteId],
   )
   if (!rows[0] || !rows[0].actif) throw httpError(400, 'Poste introuvable ou inactif')
+  assertTenant(req.user, rows[0].boss_id, 'Poste')
 
   const conflict = await findConflict({ posteId, debut, fin })
   if (conflict) {
@@ -68,6 +74,7 @@ export async function postReservation(req, res) {
 export async function patchReservationStatut(req, res) {
   const statut = req.body?.statut
   if (!STATUTS_RESERVATION.includes(statut)) throw httpError(400, 'Statut invalide')
+  assertTenant(req.user, await findReservationBossId(req.params.id), 'Réservation')
   const row = await updateReservationStatut(req.params.id, statut)
   if (!row) throw httpError(404, 'Reservation introuvable')
   await logAudit({
@@ -82,6 +89,7 @@ export async function patchReservationStatut(req, res) {
 }
 
 export async function removeReservation(req, res) {
+  assertTenant(req.user, await findReservationBossId(req.params.id), 'Réservation')
   const row = await deleteReservation(req.params.id)
   if (!row) throw httpError(404, 'Reservation introuvable')
   await logAudit({
@@ -97,6 +105,7 @@ export async function removeReservation(req, res) {
 export async function getFileAttente(req, res) {
   const rows = await listFileAttente({
     statut: STATUTS_FILE.includes(req.query.statut) ? req.query.statut : null,
+    tenantId: req.user.tenantId,
   })
   return res.json(rows)
 }
@@ -105,6 +114,11 @@ export async function postFileAttente(req, res) {
   const { salleId, posteId, nomJoueur, telephone, jeuId, note } = req.body || {}
   if (!nomJoueur?.trim()) throw httpError(400, 'Nom du joueur requis')
   if (!salleId && !posteId) throw httpError(400, 'Salle ou poste requis')
+  if (posteId) {
+    assertTenant(req.user, await bossIdForPoste(posteId), 'Poste')
+  } else {
+    await assertSalleAccess(req.user, salleId)
+  }
 
   const row = await createFileAttente({
     salleId,
@@ -129,6 +143,7 @@ export async function postFileAttente(req, res) {
 export async function patchFileAttenteStatut(req, res) {
   const statut = req.body?.statut
   if (!STATUTS_FILE.includes(statut)) throw httpError(400, 'Statut invalide')
+  assertTenant(req.user, await findFileAttenteBossId(req.params.id), 'Entrée')
   const row = await updateFileAttenteStatut(req.params.id, statut)
   if (!row) throw httpError(404, 'Entree introuvable')
   await logAudit({
@@ -143,6 +158,7 @@ export async function patchFileAttenteStatut(req, res) {
 }
 
 export async function removeFileAttente(req, res) {
+  assertTenant(req.user, await findFileAttenteBossId(req.params.id), 'Entrée')
   const row = await deleteFileAttente(req.params.id)
   if (!row) throw httpError(404, 'Entree introuvable')
   await logAudit({

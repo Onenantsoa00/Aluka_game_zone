@@ -303,8 +303,9 @@ function validateModele(modele) {
   return null
 }
 
-async function refresh() {
-  loading.value = true
+/** `silent` : rechargement apres une action, sans overlay de chargement. */
+async function refresh({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const [m, a, c] = await Promise.all([
       api.get('/paiements/modeles'),
@@ -318,7 +319,7 @@ async function refresh() {
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -346,7 +347,7 @@ async function addModele() {
   try {
     await api.post('/paiements/modeles', modeleForm.value)
     modeleForm.value = { nomModele: '', typeModele: 'pourcentage', valeur: 20, seuil: 50000 }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Modèle créé' })
   } catch (err) {
     Notify.create({ type: 'negative', message: err.message })
@@ -381,7 +382,7 @@ async function saveEdit() {
       seuil: edit.value.seuil,
     })
     showModal.value = false
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Modèle mis à jour' })
   } catch (err) {
     Notify.create({ type: 'negative', message: err.message })
@@ -399,7 +400,7 @@ function removeModele(modele) {
   }).onOk(async () => {
     try {
       await api.delete(`/paiements/modeles/${modele.id}`)
-      await refresh()
+      await refresh({ silent: true })
       Notify.create({ type: 'warning', message: 'Modèle supprimé' })
     } catch (err) {
       Notify.create({ type: 'negative', message: err.message })
@@ -415,7 +416,7 @@ async function addAffectation() {
   savingAffect.value = true
   try {
     await api.post('/paiements/affectations', affectForm.value)
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Affectation enregistrée' })
   } catch (err) {
     Notify.create({ type: 'negative', message: err.message })

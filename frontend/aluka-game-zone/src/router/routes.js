@@ -53,6 +53,11 @@ const routes = [
         meta: { roles: ALL_ROLES },
       },
       {
+        path: 'tournois/:id',
+        component: () => import('pages/TournoiDetailPage.vue'),
+        meta: { roles: ALL_ROLES },
+      },
+      {
         path: 'paiements',
         component: () => import('pages/PaiementsPage.vue'),
         meta: { roles: MANAGEMENT_ROLES },
@@ -63,6 +68,11 @@ const routes = [
         meta: { roles: MANAGEMENT_ROLES },
       },
       {
+        path: 'mon-abonnement',
+        component: () => import('pages/MonAbonnementPage.vue'),
+        meta: { roles: ['boss'] },
+      },
+      {
         path: 'abonnements',
         component: () => import('pages/AbonnementsPage.vue'),
         meta: { roles: ['admin'] },
@@ -71,11 +81,6 @@ const routes = [
         path: 'audit',
         component: () => import('pages/AuditPage.vue'),
         meta: { roles: ['admin'] },
-      },
-      {
-        path: 'ui-kit',
-        component: () => import('pages/UiKitPage.vue'),
-        meta: { roles: ALL_ROLES },
       },
     ],
   },

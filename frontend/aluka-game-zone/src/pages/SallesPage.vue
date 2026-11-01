@@ -218,8 +218,9 @@ const posteColumns = [
   { name: 'actions', label: 'Actions', field: 'actions', align: 'center' },
 ]
 
-async function refresh() {
-  loading.value = true
+/** `silent` : rechargement apres une action, sans overlay de chargement. */
+async function refresh({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const [s, p, c] = await Promise.all([
       api.get('/salles'),
@@ -245,7 +246,7 @@ async function refresh() {
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -262,7 +263,7 @@ async function addSalle() {
   try {
     await api.post('/salles', salleForm.value)
     salleForm.value = { nom: '', adresse: '', bossId: salleForm.value.bossId }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Salle créée' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -280,7 +281,7 @@ async function addPoste() {
   try {
     await api.post('/postes', posteForm.value)
     posteForm.value = { ...posteForm.value, nomPoste: '', numeroPoste: '' }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Poste ajouté' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -308,7 +309,7 @@ async function saveSalle() {
       actif: salleEdit.value.actif,
     })
     showSalleModal.value = false
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Salle mise à jour' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -326,7 +327,7 @@ function removeSalle(salle) {
   }).onOk(async () => {
     try {
       await api.delete(`/salles/${salle.id}`)
-      await refresh()
+      await refresh({ silent: true })
       Notify.create({ type: 'warning', message: 'Salle désactivée' })
     } catch (error) {
       Notify.create({ type: 'negative', message: error.message })
@@ -357,7 +358,7 @@ async function savePoste() {
       disponible: posteEdit.value.disponible,
     })
     showPosteModal.value = false
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Poste mis à jour' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -375,7 +376,7 @@ function removePoste(poste) {
   }).onOk(async () => {
     try {
       await api.delete(`/postes/${poste.id}`)
-      await refresh()
+      await refresh({ silent: true })
       Notify.create({ type: 'warning', message: 'Poste désactivé' })
     } catch (error) {
       Notify.create({ type: 'negative', message: error.message })

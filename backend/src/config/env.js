@@ -8,9 +8,13 @@ function intFromEnv(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+// Number('') vaut 0 : un PORT vide (ou un PORT=0 herite du shell) faisait
+// ecouter le serveur sur un port aleatoire. Un port nul est toujours une
+// erreur de configuration pour cette application.
+const configuredPort = intFromEnv(process.env.PORT, 3000)
+
 export const env = {
-  // Number('') vaut 0 : un PORT vide dans .env faisait écouter le serveur sur un port aléatoire
-  port: intFromEnv(process.env.PORT, 3000),
+  port: configuredPort > 0 ? configuredPort : 3000,
   jwtSecret: process.env.JWT_SECRET || 'change-me-in-production',
   // Jeton plus court + revocation serveur (voir token_version) : limite la fenetre XSS.
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',

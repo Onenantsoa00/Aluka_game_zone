@@ -73,6 +73,8 @@
         />
       </section>
 
+      <RevenueTrend :data="trendData" class="q-mb-md" />
+
       <RevenueChart :data="chartData" class="q-mb-md" />
 
       <div class="row items-center q-mb-sm">
@@ -150,6 +152,7 @@ import { getRealtimeSocket } from 'src/services/realtime'
 import GameGrid from 'src/components/Dashboard/GameGrid.vue'
 import RightPanel from 'src/components/Dashboard/RightPanel.vue'
 import RevenueChart from 'src/components/Dashboard/RevenueChart.vue'
+import RevenueTrend from 'src/components/Dashboard/RevenueTrend.vue'
 import { UiBadge, UiButton, UiModal, UiPageHeader, UiStatCard } from 'src/components/ui'
 import { api } from 'src/services/api'
 import { mapPosteForCard } from 'src/utils/mappers'
@@ -170,7 +173,6 @@ const jeux = ref([])
 const sessionForm = ref({ posteId: null, jeuId: null, totalMinutesPaid: 10 })
 
 let refreshTimer = null
-let tickTimer = null
 let socket = null
 const overtimesNotified = new Set()
 
@@ -186,6 +188,7 @@ const occupancy = computed(() => ({
 }))
 
 const chartData = computed(() => dashboard.value?.argentParSalle ?? [])
+const trendData = computed(() => dashboard.value?.serieRecette ?? [])
 const topPostes = computed(() => (dashboard.value?.postesPlusUtilises ?? []).slice(0, 5))
 const topJeux = computed(() => (dashboard.value?.jeuxPlusUtilises ?? []).slice(0, 5))
 
@@ -309,8 +312,10 @@ function onRealtimeChange() {
 
 onMounted(async () => {
   await loadAll()
+  // Pas de tick a 1 s : le temps joue est calcule par le serveur a la minute
+  // et le rafraichissement de 30 s suffit. L'ancien interval recreait tout le
+  // tableau des postes chaque seconde (re-render continu des cartes).
   refreshTimer = setInterval(() => loadAll({ silent: true }), 30000)
-  tickTimer = setInterval(rebuildPostes, 1000)
 
   socket = getRealtimeSocket(auth.token)
   if (socket) {
@@ -322,7 +327,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
-  if (tickTimer) clearInterval(tickTimer)
   if (socket) {
     socket.off('session:changed', onRealtimeChange)
     socket.off('postes:changed', onRealtimeChange)

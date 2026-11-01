@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../config/db.js'
 import { httpError, translateDbError } from '../utils/errors.js'
+import { tenantFilter } from '../utils/tenant.js'
 
 const ACTIVE_STATUSES = ['en_cours', 'pause']
 
@@ -9,9 +10,11 @@ export async function getTarifByPoste(posteId, client = null) {
   const { rows } = await run(client)(
     `SELECT t.*
      FROM postes p
-     JOIN tarifications t ON t.console_id=p.console_id
+     JOIN salles s ON s.id = p.salle_id
+     JOIN tarifications t ON t.console_id = p.console_id
      WHERE p.id=$1 AND t.actif=TRUE
-     ORDER BY t.duree_minutes ASC
+       AND (t.boss_id IS NULL OR t.boss_id = s.boss_id)
+     ORDER BY (t.boss_id = s.boss_id) DESC NULLS LAST, t.duree_minutes ASC
      LIMIT 1`,
     [posteId],
   )
@@ -24,6 +27,7 @@ const SESSION_SELECT = `
          p.statut AS poste_statut,
          p.salle_id,
          s.nom AS salle_nom,
+         s.boss_id,
          j.nom AS jeu_nom,
          ROUND(EXTRACT(EPOCH FROM (COALESCE(sj.heure_fin, CURRENT_TIMESTAMP) - sj.heure_debut)) / 60)::int
            AS duree_brute_minutes,
@@ -56,8 +60,10 @@ const SESSION_SELECT = `
                 ELSE 0 END AS duree_payee_minutes
     FROM tarifications t
     JOIN postes pp ON pp.console_id = t.console_id
+    JOIN salles ss ON ss.id = pp.salle_id
     WHERE pp.id = sj.poste_id AND t.actif = TRUE
-    ORDER BY t.duree_minutes ASC
+      AND (t.boss_id IS NULL OR t.boss_id = ss.boss_id)
+    ORDER BY (t.boss_id = ss.boss_id) DESC NULLS LAST, t.duree_minutes ASC
     LIMIT 1
   ) tar ON TRUE
 `
@@ -67,7 +73,13 @@ const SESSION_SELECT = `
  * `elapsed_minutes` est calcule serveur en excluant les pauses, y compris la
  * pause ouverte : le temps affiche ne court donc plus pendant une pause (O5).
  */
-export async function listSessions({ limit = 50, offset = 0, statut = null, aVerifier = null } = {}) {
+export async function listSessions({
+  limit = 50,
+  offset = 0,
+  statut = null,
+  aVerifier = null,
+  tenantId = null,
+} = {}) {
   const params = []
   const where = []
   if (statut) {
@@ -76,6 +88,7 @@ export async function listSessions({ limit = 50, offset = 0, statut = null, aVer
   }
   if (aVerifier === true) where.push('sj.a_verifier = TRUE')
   if (aVerifier === false) where.push('sj.a_verifier = FALSE')
+  where.push(tenantFilter(params, tenantId))
 
   params.push(limit, offset)
   const limitIdx = params.length - 1
@@ -95,17 +108,22 @@ export async function listSessions({ limit = 50, offset = 0, statut = null, aVer
   return rows
 }
 
-export async function countSessions({ statut = null, aVerifier = null } = {}) {
+export async function countSessions({ statut = null, aVerifier = null, tenantId = null } = {}) {
   const params = []
   const where = []
   if (statut) {
     params.push(statut)
-    where.push(`statut = $${params.length}`)
+    where.push(`sj.statut = $${params.length}`)
   }
-  if (aVerifier === true) where.push('a_verifier = TRUE')
-  if (aVerifier === false) where.push('a_verifier = FALSE')
+  if (aVerifier === true) where.push('sj.a_verifier = TRUE')
+  if (aVerifier === false) where.push('sj.a_verifier = FALSE')
+  where.push(tenantFilter(params, tenantId))
   const { rows } = await query(
-    `SELECT COUNT(*)::int AS total FROM sessions_jeux ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`,
+    `SELECT COUNT(*)::int AS total
+     FROM sessions_jeux sj
+     JOIN postes p ON p.id = sj.poste_id
+     JOIN salles s ON s.id = p.salle_id
+     WHERE ${where.join(' AND ')}`,
     params,
   )
   return rows[0].total
@@ -308,8 +326,11 @@ export async function closeSessionsAtClosing(closingHour) {
          SELECT ((CURRENT_DATE - CASE WHEN LOCALTIME < make_time($1, 0, 0) THEN 1 ELSE 0 END)
                  + make_time($1, 0, 0))::timestamp AS at
        )
-       SELECT sj.id, sj.poste_id
-       FROM sessions_jeux sj, cutoff c
+       SELECT sj.id, sj.poste_id, s.boss_id
+       FROM sessions_jeux sj
+       JOIN postes p ON p.id = sj.poste_id
+       JOIN salles s ON s.id = p.salle_id
+       CROSS JOIN cutoff c
        WHERE sj.statut IN ('en_cours', 'pause')
          AND sj.heure_debut < c.at`,
       [closingHour],

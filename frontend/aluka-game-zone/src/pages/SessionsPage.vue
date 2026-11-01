@@ -358,8 +358,13 @@ function formatDateTime(value) {
   }).format(new Date(value))
 }
 
-async function refresh() {
-  loading.value = true
+/**
+ * `silent` : rafraichissement d'arriere-plan (socket, apres une action) qui ne
+ * doit pas afficher l'overlay de chargement — sinon le tableau se figeait a
+ * chaque clic sur Pause/Terminer.
+ */
+async function refresh({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const [sessionsRes, countRes, enCoursRes, pauseRes, postesRes, jeuxRes, aVerifierRes] =
       await Promise.all([
@@ -379,9 +384,11 @@ async function refresh() {
     sessionsAVerifier.value = Array.isArray(aVerifierRes) ? aVerifierRes : []
     notifyOvertime()
   } catch (error) {
-    Notify.create({ type: 'negative', message: error.message || 'Chargement impossible' })
+    if (!silent) {
+      Notify.create({ type: 'negative', message: error.message || 'Chargement impossible' })
+    }
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -405,8 +412,8 @@ function scheduleRefresh() {
   if (refreshTimer) return
   refreshTimer = setTimeout(() => {
     refreshTimer = null
-    refresh()
-  }, 500)
+    refresh({ silent: true })
+  }, 400)
 }
 
 function bootstrap() {
@@ -427,11 +434,11 @@ async function startSession() {
   try {
     await api.post('/sessions/start', form.value)
     form.value = { posteId: null, jeuId: null, totalMinutesPaid: 10 }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Session démarrée' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
-    await refresh()
+    await refresh({ silent: true })
   } finally {
     starting.value = false
   }
@@ -440,7 +447,7 @@ async function startSession() {
 async function pause(id) {
   try {
     await api.post(`/sessions/${id}/pause`, {})
-    await refresh()
+    await refresh({ silent: true })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   }
@@ -449,7 +456,7 @@ async function pause(id) {
 async function resume(id) {
   try {
     await api.post(`/sessions/${id}/resume`, {})
-    await refresh()
+    await refresh({ silent: true })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   }
@@ -463,7 +470,7 @@ function stop(id, coupureElectricite) {
     async () => {
       try {
         const result = await api.post(`/sessions/${id}/stop`, { coupureElectricite })
-        await refresh()
+        await refresh({ silent: true })
         if (coupureElectricite && Number(result?.montant_a_rendre) > 0) {
           Notify.create({
             type: 'info',
@@ -474,7 +481,7 @@ function stop(id, coupureElectricite) {
         }
       } catch (error) {
         Notify.create({ type: 'negative', message: error.message })
-        await refresh()
+        await refresh({ silent: true })
       }
     },
   )
@@ -492,7 +499,7 @@ async function submitProlongation() {
       minutes: prolongation.value.minutes,
     })
     showProlongation.value = false
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({
       type: 'positive',
       message: `Session prolongée — ${formatAriary(result.montant_ajoute)} encaissés`,
@@ -516,7 +523,7 @@ async function submitPaiement() {
       montant: paiement.value.montant,
     })
     showPaiement.value = false
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Paiement enregistré' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -528,7 +535,7 @@ async function submitPaiement() {
 async function verifier(id) {
   try {
     await api.patch(`/sessions/${id}/verifier`, {})
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Session vérifiée' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })

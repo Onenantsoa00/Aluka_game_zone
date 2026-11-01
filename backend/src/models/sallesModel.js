@@ -1,12 +1,16 @@
 import { query } from '../config/db.js'
+import { tenantFilter } from '../utils/tenant.js'
 
-export async function listSallesActives() {
+export async function listSallesActives(tenantId = null) {
+  const params = []
+  const scope = tenantFilter(params, tenantId)
   const { rows } = await query(
     `SELECT s.*, u.nom AS boss_nom
      FROM salles s JOIN utilisateurs u ON u.id=s.boss_id
-     WHERE s.actif=TRUE
+     WHERE s.actif=TRUE AND ${scope}
      ORDER BY s.id DESC
      LIMIT 500`,
+    params,
   )
   return rows
 }

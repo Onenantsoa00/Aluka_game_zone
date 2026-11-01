@@ -1,18 +1,20 @@
 import { query } from '../config/db.js'
+import { tenantFilter } from '../utils/tenant.js'
 
-export async function listPostes(salleId) {
+export async function listPostes({ salleId = null, tenantId = null } = {}) {
   const params = []
   const where = []
   if (salleId) {
     params.push(salleId)
     where.push(`p.salle_id = $${params.length}`)
   }
+  where.push(tenantFilter(params, tenantId))
   const { rows } = await query(
-    `SELECT p.*, s.nom AS salle_nom, c.nom AS console_nom
+    `SELECT p.*, s.nom AS salle_nom, s.boss_id, c.nom AS console_nom
      FROM postes p
      JOIN salles s ON s.id=p.salle_id
      JOIN consoles c ON c.id=p.console_id
-     WHERE s.actif=TRUE ${where.length ? `AND ${where.join(' AND ')}` : ''}
+     WHERE s.actif=TRUE AND ${where.join(' AND ')}
      ORDER BY p.id DESC
      LIMIT 500`,
     params,

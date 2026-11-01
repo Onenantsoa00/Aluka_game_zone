@@ -207,15 +207,16 @@ function initials(name) {
     .join('')
 }
 
-async function refresh() {
-  loading.value = true
+/** `silent` : rechargement apres une action, sans overlay de chargement. */
+async function refresh({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const res = await api.get('/comptes')
     rows.value = Array.isArray(res) ? res : []
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -228,7 +229,7 @@ async function createAccount() {
   try {
     await api.post('/comptes', form.value)
     form.value = { nom: '', username: '', motDePasse: '', telephone: '', role: 'jeton' }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Compte créé' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -258,7 +259,7 @@ async function saveEdit() {
       motDePasse: edit.value.motDePasse || undefined,
     })
     showModal.value = false
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Compte mis à jour' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -276,7 +277,7 @@ function removeCompte(row) {
   }).onOk(async () => {
     try {
       await api.delete(`/comptes/${row.id}`)
-      await refresh()
+      await refresh({ silent: true })
       Notify.create({ type: 'warning', message: 'Compte désactivé' })
     } catch (error) {
       Notify.create({ type: 'negative', message: error.message })
@@ -287,14 +288,14 @@ function removeCompte(row) {
 async function toggleActif(id, actif) {
   try {
     await api.patch(`/comptes/${id}/actif`, { actif })
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({
       type: actif ? 'positive' : 'warning',
       message: actif ? 'Compte débloqué' : 'Compte bloqué',
     })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
-    await refresh()
+    await refresh({ silent: true })
   }
 }
 

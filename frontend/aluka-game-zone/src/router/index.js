@@ -45,5 +45,52 @@ export default defineRouter((/* { store, ssrContext } */) => {
     return true
   })
 
+  // Prechargement des pages en arriere-plan (une seule fois, apres la premiere
+  // navigation) : le clic sur un menu n'attend plus le telechargement du chunk.
+  Router.afterEach(() => {
+    if (prefetchStarted) return
+    prefetchStarted = true
+    schedulePrefetch(Router)
+  })
+
   return Router
 })
+
+let prefetchStarted = false
+
+/**
+ * Charge les modules de page pendant les temps morts, un par un, pour ne pas
+ * concurrencer la page en cours d'affichage ni la premiere requete API.
+ */
+function schedulePrefetch(router) {
+  const connection = typeof navigator !== 'undefined' ? navigator.connection : null
+  if (connection?.saveData) return
+
+  // Seules les pages accessibles au role courant sont prechargees.
+  const role = useAuthStore().user?.role
+  const loaders = []
+  for (const record of router.getRoutes()) {
+    const roles = record.meta?.roles
+    if (roles && role && !roles.includes(role)) continue
+    for (const component of Object.values(record.components || {})) {
+      if (typeof component === 'function') loaders.push(component)
+    }
+  }
+  const unique = [...new Set(loaders)]
+
+  const idle =
+    typeof window !== 'undefined' && window.requestIdleCallback
+      ? window.requestIdleCallback
+      : (fn) => setTimeout(fn, 300)
+
+  let index = 0
+  const next = () => {
+    if (index >= unique.length) return
+    const load = unique[index++]
+    Promise.resolve()
+      .then(() => load())
+      .catch(() => {})
+      .finally(() => idle(next, { timeout: 4000 }))
+  }
+  idle(next, { timeout: 4000 })
+}

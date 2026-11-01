@@ -137,11 +137,17 @@ export default defineConfig((/* ctx */) => {
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/developing-pwa/configuring-pwa
+    // Mode PWA (P2.13) : `npm run dev:pwa` / `npm run build:pwa`.
+    // InjectManifest permet le cache API GET (consultation hors ligne) tout en
+    // laissant passer les mutations, qui ne doivent jamais etre rejouees.
     pwa: {
-      workboxMode: 'GenerateSW', // 'GenerateSW' or 'InjectManifest'
-      // swFilename: 'sw.js',
-      // manifestFilename: 'manifest.json',
-      // extendManifestJson (json) {},
+      workboxMode: 'InjectManifest',
+      swFilename: 'sw.js',
+      manifestFilename: 'manifest.json',
+      extendManifestJson(json) {
+        json.id = './'
+        json.prefer_related_applications = false
+      },
       // useCredentialsForManifestTag: true,
       // injectPwaMetaTags: false,
       // extendPWACustomSWConf (esbuildConf) {},

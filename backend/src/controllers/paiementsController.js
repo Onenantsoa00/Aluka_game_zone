@@ -13,6 +13,7 @@ import {
 import { computeRemuneration, TYPES_MODELE } from '../services/remuneration.js'
 import { clientIp, logAudit } from '../utils/audit.js'
 import { httpError } from '../utils/errors.js'
+import { assertTenant } from '../utils/tenant.js'
 
 function validateModele({ typeModele, valeur, seuil }) {
   if (!TYPES_MODELE.includes(typeModele)) {
@@ -34,9 +35,19 @@ function validateModele({ typeModele, valeur, seuil }) {
   }
 }
 
-export async function getModeles(_req, res) {
-  const rows = await listModeles()
+export async function getModeles(req, res) {
+  const rows = await listModeles(req.user.tenantId)
   return res.json(rows)
+}
+
+function assertModeleAccess(user, modele) {
+  if (modele.boss_id == null) {
+    if (user.role !== 'admin') {
+      throw httpError(403, 'Ce modèle est un modèle plateforme : dupliquez-le pour le modifier')
+    }
+    return
+  }
+  assertTenant(user, modele.boss_id, 'Modèle')
 }
 
 export async function postModele(req, res) {
@@ -50,6 +61,7 @@ export async function postModele(req, res) {
     valeur,
     seuil: typeModele === 'pourcentage_seuil' ? seuil : null,
     description,
+    bossId: req.user.role === 'boss' ? req.user.tenantId : null,
   })
   await logAudit({
     userId: req.user.id,
@@ -65,6 +77,7 @@ export async function postModele(req, res) {
 export async function putModele(req, res) {
   const modele = await findModeleById(req.params.id)
   if (!modele) throw httpError(404, 'Modele introuvable')
+  assertModeleAccess(req.user, modele)
 
   const typeModele = req.body.typeModele || modele.type_modele
   const valeur = req.body.valeur !== undefined ? req.body.valeur : modele.valeur
@@ -93,6 +106,7 @@ export async function putModele(req, res) {
 export async function deleteModeleController(req, res) {
   const modele = await findModeleById(req.params.id)
   if (!modele) throw httpError(404, 'Modele introuvable')
+  assertModeleAccess(req.user, modele)
   const affectations = await countAffectationsForModele(modele.id)
   if (affectations > 0) {
     throw httpError(409, 'Ce modele est affecte a un operateur : desaffectez-le d\'abord')
@@ -109,8 +123,8 @@ export async function deleteModeleController(req, res) {
   return res.json(row)
 }
 
-export async function getAffectations(_req, res) {
-  const rows = await listAffectations()
+export async function getAffectations(req, res) {
+  const rows = await listAffectations(req.user.tenantId)
   return res.json(rows)
 }
 
@@ -119,12 +133,15 @@ export async function postAffectation(req, res) {
   if (!jetonId || !modeleId) throw httpError(400, 'jetonId et modeleId requis')
 
   const { rows } = await query(
-    `SELECT u.id FROM utilisateurs u JOIN roles r ON r.id=u.role_id
+    `SELECT u.id, u.cree_par FROM utilisateurs u JOIN roles r ON r.id=u.role_id
      WHERE u.id=$1 AND r.nom='jeton' AND u.actif=TRUE`,
     [jetonId],
   )
   if (!rows[0]) throw httpError(400, 'Operateur (jeton) introuvable ou inactif')
-  if (!(await findModeleById(modeleId))) throw httpError(400, 'Modele introuvable')
+  assertTenant(req.user, rows[0].cree_par, 'Opérateur')
+  const modele = await findModeleById(modeleId)
+  if (!modele) throw httpError(400, 'Modele introuvable')
+  if (modele.boss_id != null) assertTenant(req.user, modele.boss_id, 'Modèle')
 
   const row = await createAffectation({ jetonId, modeleId })
   await logAudit({
@@ -150,8 +167,8 @@ export async function getRemunerations(req, res) {
     ) + 1
 
   const [recettes, affectations] = await Promise.all([
-    recetteParJeton(dateDebut, dateFin),
-    listAffectations(),
+    recetteParJeton(dateDebut, dateFin, req.user.tenantId),
+    listAffectations(req.user.tenantId),
   ])
   const modelesParJeton = new Map(affectations.map((a) => [a.jeton_id, a]))
 

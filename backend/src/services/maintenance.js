@@ -1,6 +1,7 @@
 import { env } from '../config/env.js'
 import { closeSessionsAtClosing } from '../models/sessionsModel.js'
 import { emitEvent } from '../realtime.js'
+import { runRelances } from './abonnement.js'
 
 let timer = null
 
@@ -15,8 +16,25 @@ export async function runMaintenance() {
     if (closed.length) {
       // eslint-disable-next-line no-console
       console.log(`Cloture automatique de ${closed.length} session(s) a verifier`)
+      const parBoss = new Map()
+      for (const row of closed) {
+        if (row.boss_id) parBoss.set(row.boss_id, (parBoss.get(row.boss_id) || 0) + 1)
+      }
+      for (const [bossId, count] of parBoss) {
+        emitEvent('sessions:refresh', { reason: 'closing', count }, bossId)
+        emitEvent('postes:changed', {}, bossId)
+      }
       emitEvent('sessions:refresh', { reason: 'closing', count: closed.length })
-      emitEvent('postes:changed', {})
+    }
+
+    // Relances d'abonnement (J-7, J-3, J-1, expiration) : idempotent.
+    const relances = await runRelances()
+    for (const relance of relances) {
+      emitEvent(
+        'abonnement:relance',
+        { type: relance.type, message: relance.message },
+        relance.boss_id,
+      )
     }
   } catch (error) {
     // eslint-disable-next-line no-console

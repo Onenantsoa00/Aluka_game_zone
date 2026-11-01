@@ -11,7 +11,7 @@ function resolveDate(value) {
 
 export async function getZ(req, res) {
   const date = resolveDate(req.query.date)
-  const rapport = await getRapportZ(date)
+  const rapport = await getRapportZ(date, req.user.tenantId)
   return res.json({
     ...rapport,
     generePar: req.user.username,
@@ -54,7 +54,7 @@ function toCsv(rapport) {
 
 export async function getZCsv(req, res) {
   const date = resolveDate(req.query.date)
-  const rapport = await getRapportZ(date)
+  const rapport = await getRapportZ(date, req.user.tenantId)
   await logAudit({
     userId: req.user.id,
     action: 'rapport.z.export',
@@ -70,7 +70,7 @@ export async function getZCsv(req, res) {
 
 export async function getZTicket(req, res) {
   const date = resolveDate(req.query.date)
-  const rapport = await getRapportZ(date)
+  const rapport = await getRapportZ(date, req.user.tenantId)
   const lignes = [
     '================================',
     '   ALUKA GAME ZONE - CAISSE Z',

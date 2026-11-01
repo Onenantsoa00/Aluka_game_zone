@@ -9,6 +9,7 @@ import {
 } from '../models/postesModel.js'
 import { clientIp, logAudit } from '../utils/audit.js'
 import { httpError, translateDbError } from '../utils/errors.js'
+import { assertSalleAccess, assertTenant, bossIdForPoste } from '../utils/tenant.js'
 
 async function assertReferences({ salleId, consoleId }) {
   if (salleId) {
@@ -22,7 +23,10 @@ async function assertReferences({ salleId, consoleId }) {
 }
 
 export async function getPostes(req, res) {
-  const rows = await listPostes(req.query.salleId)
+  const rows = await listPostes({
+    salleId: req.query.salleId ? Number(req.query.salleId) : null,
+    tenantId: req.user.tenantId,
+  })
   return res.json(rows)
 }
 
@@ -30,6 +34,7 @@ export async function postPoste(req, res) {
   const { salleId, consoleId, nomPoste, numeroPoste } = req.body || {}
   if (!salleId || !consoleId) throw httpError(400, 'Salle et console requises')
   if (!nomPoste?.trim()) throw httpError(400, 'Nom du poste requis')
+  await assertSalleAccess(req.user, salleId)
   await assertReferences({ salleId, consoleId })
 
   let row
@@ -58,6 +63,7 @@ export async function postPoste(req, res) {
 export async function putPoste(req, res) {
   const poste = await findPosteById(req.params.id)
   if (!poste) throw httpError(404, 'Poste introuvable')
+  assertTenant(req.user, await bossIdForPoste(poste.id), 'Poste')
   if (req.body.nomPoste !== undefined && !String(req.body.nomPoste).trim()) {
     throw httpError(400, 'Le nom ne peut pas etre vide')
   }
@@ -91,6 +97,7 @@ export async function putPoste(req, res) {
 export async function deletePoste(req, res) {
   const poste = await findPosteById(req.params.id)
   if (!poste) throw httpError(404, 'Poste introuvable')
+  assertTenant(req.user, await bossIdForPoste(poste.id), 'Poste')
   if (await hasActiveSession(poste.id)) {
     throw httpError(409, 'Ce poste a une session active : terminez-la avant de le supprimer')
   }

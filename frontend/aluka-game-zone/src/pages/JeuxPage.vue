@@ -122,12 +122,25 @@
               </span>
             </q-td>
           </template>
+          <template #body-cell-origine="props">
+            <q-td>
+              <UiBadge
+                :tone="props.row.boss_id ? 'ok' : 'neutral'"
+                :label="props.row.boss_id ? 'Ma grille' : 'Modèle plateforme'"
+              />
+            </q-td>
+          </template>
           <template #body-cell-actions="props">
             <q-td>
-              <div class="row-tight" style="justify-content: center">
+              <div
+                v-if="isAdmin || props.row.boss_id"
+                class="row-tight"
+                style="justify-content: center"
+              >
                 <UiButton variant="icon" icon="edit" tooltip="Modifier le tarif" @click="openTarifEdit(props.row)" />
                 <UiButton variant="icon" icon="delete" tooltip="Supprimer le tarif" @click="removeTarif(props.row)" />
               </div>
+              <span v-else class="cell-sub">Lecture seule — ajoutez votre propre tarif</span>
             </q-td>
           </template>
         </UiTable>
@@ -164,8 +177,11 @@ import { computed, onMounted, ref } from 'vue'
 import { Notify, Dialog } from 'quasar'
 import { api } from 'src/services/api'
 import { formatAriary } from 'src/utils/mappers'
-import { UiButton, UiCard, UiModal, UiPageHeader, UiTable } from 'src/components/ui'
+import { UiBadge, UiButton, UiCard, UiModal, UiPageHeader, UiTable } from 'src/components/ui'
+import { useAuthStore } from 'src/stores/auth-store'
 
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.role === 'admin')
 const jeux = ref([])
 const consoles = ref([])
 const tarifs = ref([])
@@ -190,6 +206,7 @@ const jeuColumns = [
 const tarifColumns = [
   { name: 'duree_minutes', label: 'Durée', field: 'duree_minutes', align: 'left' },
   { name: 'prix', label: 'Prix', field: 'prix', align: 'left' },
+  { name: 'origine', label: 'Origine', field: 'boss_id', align: 'left' },
   { name: 'actions', label: 'Actions', field: 'actions', align: 'center' },
 ]
 
@@ -206,8 +223,9 @@ async function loadTarifs() {
   }
 }
 
-async function bootstrap() {
-  loading.value = true
+/** `silent` : rechargement apres une action, sans overlay de chargement. */
+async function bootstrap({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const [j, c] = await Promise.all([api.get('/jeux'), api.get('/consoles')])
     jeux.value = Array.isArray(j) ? j : []
@@ -219,7 +237,7 @@ async function bootstrap() {
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -269,7 +287,7 @@ async function saveJeu() {
       actif: jeuEdit.value.actif,
     })
     showJeuModal.value = false
-    await bootstrap()
+    await bootstrap({ silent: true })
     Notify.create({ type: 'positive', message: 'Jeu mis à jour' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -287,7 +305,7 @@ function removeJeu(jeu) {
   }).onOk(async () => {
     try {
       await api.delete(`/jeux/${jeu.id}`)
-      await bootstrap()
+      await bootstrap({ silent: true })
       Notify.create({ type: 'warning', message: 'Jeu désactivé' })
     } catch (error) {
       Notify.create({ type: 'negative', message: error.message })
@@ -340,3 +358,11 @@ function removeTarif(tarif) {
 
 onMounted(bootstrap)
 </script>
+
+<style scoped>
+.cell-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+</style>

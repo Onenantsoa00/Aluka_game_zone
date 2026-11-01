@@ -142,8 +142,9 @@ function stockRatio(row) {
   return Math.min(100, Math.round((qty / target) * 100))
 }
 
-async function refresh() {
-  loading.value = true
+/** `silent` : rechargement apres une action, sans overlay de chargement. */
+async function refresh({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const [m, s] = await Promise.all([api.get('/materiels'), api.get('/salles')])
     rows.value = Array.isArray(m) ? m : []
@@ -152,7 +153,7 @@ async function refresh() {
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -165,7 +166,7 @@ async function addMateriel() {
   try {
     await api.post('/materiels', form.value)
     form.value = { ...form.value, nom: '', categorie: '', quantite: 0 }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Matériel ajouté' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -193,7 +194,7 @@ function mouvement(row, type) {
         typeMouvement: type,
         quantite,
       })
-      await refresh()
+      await refresh({ silent: true })
       Notify.create({ type: 'positive', message: 'Mouvement enregistré' })
     } catch (error) {
       Notify.create({ type: 'negative', message: error.message })

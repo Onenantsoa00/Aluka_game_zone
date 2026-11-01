@@ -38,11 +38,11 @@ export async function deactivateJeu(id) {
   return rows[0]
 }
 
-export async function createTarification({ consoleId, dureeMinutes, prix }) {
+export async function createTarification({ consoleId, dureeMinutes, prix, bossId = null }) {
   const { rows } = await query(
-    `INSERT INTO tarifications (console_id, duree_minutes, prix)
-     VALUES ($1,$2,$3) RETURNING *`,
-    [consoleId, dureeMinutes, prix],
+    `INSERT INTO tarifications (console_id, duree_minutes, prix, boss_id)
+     VALUES ($1,$2,$3,$4) RETURNING *`,
+    [consoleId, dureeMinutes, prix, bossId],
   )
   return rows[0]
 }
@@ -71,13 +71,19 @@ export async function deleteTarification(id) {
   return rows[0]
 }
 
-export async function listTarificationsByConsole(consoleId) {
+export async function listTarificationsByConsole(consoleId, tenantId = null) {
+  const params = [consoleId]
+  let scope = ''
+  if (tenantId !== null && tenantId !== undefined) {
+    params.push(tenantId)
+    scope = `AND (boss_id IS NULL OR boss_id = $${params.length})`
+  }
   const { rows } = await query(
     `SELECT * FROM tarifications
-     WHERE console_id=$1 AND actif=TRUE
-     ORDER BY duree_minutes ASC
+     WHERE console_id=$1 AND actif=TRUE ${scope}
+     ORDER BY (boss_id IS NULL), duree_minutes ASC
      LIMIT 200`,
-    [consoleId],
+    params,
   )
   return rows
 }

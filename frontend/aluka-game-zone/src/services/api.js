@@ -1,4 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const CACHE_PREFIX = 'agz:cache:'
+const CACHE_TTL = 24 * 60 * 60 * 1000
 
 function getToken() {
   return localStorage.getItem('agz_token')
@@ -8,6 +10,7 @@ function clearSession() {
   try {
     localStorage.removeItem('agz_token')
     localStorage.removeItem('agz_user')
+    localStorage.removeItem('agz_abonnement')
   } catch (err) {
     console.warn('Impossible de vider la session locale', err)
   }
@@ -22,6 +25,37 @@ function clearSession() {
 function notifyUnauthorized() {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new Event('agz:unauthorized'))
+}
+
+function notifyOfflineData(path) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('agz:offline-data', { detail: { path } }))
+}
+
+/**
+ * Cache local des lectures (P2.13). Le service worker met deja les GET en
+ * cache ; ce filet localStorage couvre le mode dev et les navigateurs ou le SW
+ * n'est pas encore actif (premiere visite). Les mutations ne sont jamais
+ * rejouees hors ligne : une caisse ne doit pas inventer d'encaissement.
+ */
+function readCache(path) {
+  try {
+    const raw = localStorage.getItem(`${CACHE_PREFIX}${path}`)
+    if (!raw) return null
+    const entry = JSON.parse(raw)
+    if (!entry?.at || Date.now() - entry.at > CACHE_TTL) return null
+    return entry
+  } catch {
+    return null
+  }
+}
+
+function writeCache(path, data) {
+  try {
+    localStorage.setItem(`${CACHE_PREFIX}${path}`, JSON.stringify({ at: Date.now(), data }))
+  } catch {
+    // Quota plein : le cache est un confort, jamais un prerequis.
+  }
 }
 
 /**
@@ -42,6 +76,9 @@ async function refreshToken() {
     if (!data?.token) return null
     localStorage.setItem('agz_token', data.token)
     if (data.user) localStorage.setItem('agz_user', JSON.stringify(data.user))
+    if (data.abonnement) {
+      localStorage.setItem('agz_abonnement', JSON.stringify(data.abonnement))
+    }
     window.dispatchEvent(new CustomEvent('agz:token-refreshed', { detail: data }))
     return data.token
   } catch {
@@ -50,6 +87,7 @@ async function refreshToken() {
 }
 
 async function request(path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase()
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
@@ -61,9 +99,18 @@ async function request(path, options = {}) {
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
   } catch {
-    // On remonte l'erreur : renvoyer {} masquait les pannes reseau et provoquait
-    // des erreurs de type dans les pages (rows.filter is not a function).
-    throw new Error('Serveur injoignable — vérifiez votre connexion')
+    if (method === 'GET') {
+      const cached = readCache(path)
+      if (cached) {
+        notifyOfflineData(path)
+        return cached.data
+      }
+    }
+    throw new Error(
+      typeof navigator !== 'undefined' && navigator.onLine === false
+        ? 'Hors ligne : cette action nécessite une connexion'
+        : 'Serveur injoignable — vérifiez votre connexion',
+    )
   }
 
   const data = await response.json().catch(() => ({}))
@@ -76,8 +123,15 @@ async function request(path, options = {}) {
       clearSession()
       notifyUnauthorized()
     }
+    if (response.status === 402 && data?.code === 'ABONNEMENT_EXPIRE') {
+      window.dispatchEvent(
+        new CustomEvent('agz:subscription-expired', { detail: data }),
+      )
+    }
     throw new Error(data.message || `Erreur API (${response.status})`)
   }
+
+  if (method === 'GET') writeCache(path, data)
   return data
 }
 
@@ -109,6 +163,16 @@ export const api = {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
+  },
+  /** Purge les lectures en cache (deconnexion, changement de compte). */
+  clearCache() {
+    try {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith(CACHE_PREFIX))
+        .forEach((key) => localStorage.removeItem(key))
+    } catch {
+      // ignore
+    }
   },
   serverUrl: API_BASE_URL.replace(/\/api\/?$/, ''),
 }

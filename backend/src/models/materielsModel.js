@@ -1,10 +1,15 @@
 import { query } from '../config/db.js'
+import { tenantFilter } from '../utils/tenant.js'
 
-export async function listMateriels() {
+export async function listMateriels(tenantId = null) {
+  const params = []
+  const scope = tenantFilter(params, tenantId)
   const { rows } = await query(
-    `SELECT m.*, s.nom AS salle_nom
+    `SELECT m.*, s.nom AS salle_nom, s.boss_id
      FROM materiels m JOIN salles s ON s.id=m.salle_id
+     WHERE ${scope}
      ORDER BY m.id DESC`,
+    params,
   )
   return rows
 }

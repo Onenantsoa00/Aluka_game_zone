@@ -25,11 +25,13 @@ Application de gestion multi-salles de jeux (admin, boss, jeton).
    npm run seed
    ```
 
-> Les migrations `001_hardening.sql`, `002_fraction_precision.sql` et
-> `003_pause_integrity.sql` ont déjà été appliquées à la base de développement :
-> contraintes d'unicité, colonnes d'audit/vérification, tables
-> réservations/file d'attente, correction des modèles de paiement,
-> dédoublonnage des noms de postes et correction des pauses historiques.
+> Les migrations `001_hardening.sql`, `002_fraction_precision.sql`,
+> `003_pause_integrity.sql`, `004_saas_tenant.sql` et `005_tarifs_par_boss.sql`
+> ont déjà été appliquées à la base de développement : contraintes d'unicité,
+> colonnes d'audit/vérification, tables réservations/file d'attente, correction
+> des modèles de paiement, dédoublonnage des noms de postes, correction des
+> pauses historiques, SaaS multi-tenant (abonnements, demandes Mobile Money,
+> relances, tableau de tournoi) et unicité des tarifs par propriétaire.
 
 ## 2) Lancer le backend
 
@@ -58,10 +60,10 @@ Copier `.env.example` vers `.env` avant lancement (`VITE_API_URL`).
 
 ## Rôles
 
-| Rôle | Description |
-| --- | --- |
-| `admin` | Accès global : comptes, abonnements, audit, caisse, toutes les salles |
-| `boss` | Gestion de ses salles et de ses opérateurs (`jeton`), caisse et paie |
+| Rôle    | Description                                                            |
+| ------- | ---------------------------------------------------------------------- |
+| `admin` | Accès global : comptes, abonnements, audit, caisse, toutes les salles  |
+| `boss`  | Gestion de ses salles et de ses opérateurs (`jeton`), caisse et paie   |
 | `jeton` | Opérateur de salle : sessions, réservations, file d'attente, matériels |
 
 Les rôles sont stockés dans la table `roles` et référencés par
@@ -70,11 +72,11 @@ front (`meta.roles`), la sidebar et les gardes serveur.
 
 ## Comptes créés par `npm run seed`
 
-| Identifiant | Mot de passe | Rôle |
-| --- | --- | --- |
-| `admin` | `admin123` | admin |
-| `boss1` | `boss123` | boss |
-| `jeton1` | `jeton123` | jeton |
+| Identifiant | Mot de passe | Rôle  |
+| ----------- | ------------ | ----- |
+| `admin`     | `admin123`   | admin |
+| `boss1`     | `boss123`    | boss  |
+| `jeton1`    | `jeton123`   | jeton |
 
 > **Sécurité** : ces comptes de démonstration doivent être supprimés ou leurs
 > mots de passe changés avant toute mise en production. Le formulaire de
@@ -101,22 +103,22 @@ front (`meta.roles`), la sidebar et les gardes serveur.
 
 ## Matrice des accès
 
-| Endpoint | admin | boss | jeton |
-| --- | --- | --- | --- |
-| `GET /dashboard` | oui | oui | oui |
-| `GET /sessions`, `/sessions/count`, `/sessions/a-verifier` | oui | oui | oui |
-| `POST /sessions/*` (start/pause/resume/stop/prolongation/paiements) | oui | oui | oui |
-| `PATCH /sessions/:id/verifier` | oui | oui | non |
-| `GET /comptes` | tous | son compte + ses jetons | **403** |
-| `POST/PUT/DELETE /comptes` | oui | jetons qu'il a créés | non |
-| `GET /paiements/*` et `/paiements/remunerations` | oui | oui | **403** |
-| `GET /salles`, `/postes`, `/jeux`, `/consoles` | oui | oui | oui |
-| `POST/PUT/DELETE /salles`, `/postes`, `/jeux`, tarifs | oui | oui (ses salles) | non |
-| `GET/POST/PATCH /abonnements` | oui | non | non |
-| `GET /audit` | oui | non | non |
-| `GET /rapports/z`, `/rapports/z.csv` | oui | oui | non |
-| `/reservations`, `/file-attente` | oui | oui | oui |
-| `/materiels`, `/tournois` (écritures) | oui | oui | matériels |
+| Endpoint                                                            | admin | boss                    | jeton     |
+| ------------------------------------------------------------------- | ----- | ----------------------- | --------- |
+| `GET /dashboard`                                                    | oui   | oui                     | oui       |
+| `GET /sessions`, `/sessions/count`, `/sessions/a-verifier`          | oui   | oui                     | oui       |
+| `POST /sessions/*` (start/pause/resume/stop/prolongation/paiements) | oui   | oui                     | oui       |
+| `PATCH /sessions/:id/verifier`                                      | oui   | oui                     | non       |
+| `GET /comptes`                                                      | tous  | son compte + ses jetons | **403**   |
+| `POST/PUT/DELETE /comptes`                                          | oui   | jetons qu'il a créés    | non       |
+| `GET /paiements/*` et `/paiements/remunerations`                    | oui   | oui                     | **403**   |
+| `GET /salles`, `/postes`, `/jeux`, `/consoles`                      | oui   | oui                     | oui       |
+| `POST/PUT/DELETE /salles`, `/postes`, `/jeux`, tarifs               | oui   | oui (ses salles)        | non       |
+| `GET/POST/PATCH /abonnements`                                       | oui   | non                     | non       |
+| `GET /audit`                                                        | oui   | non                     | non       |
+| `GET /rapports/z`, `/rapports/z.csv`                                | oui   | oui                     | non       |
+| `/reservations`, `/file-attente`                                    | oui   | oui                     | oui       |
+| `/materiels`, `/tournois` (écritures)                               | oui   | oui                     | matériels |
 
 Toutes les routes front portent désormais un `meta.roles` ; une route non
 autorisée redirige vers le tableau de bord, et les entrées de menu sont filtrées
@@ -128,22 +130,22 @@ par rôle.
 
 ## Bugs corrigés
 
-| Réf | Correction |
-| --- | --- |
-| **O1** | Démarrage de session dans une transaction avec verrou `FOR UPDATE` sur le poste + index unique partiel `sessions_jeux_active_poste_uniq` (une seule session `en_cours`/`pause` par poste). Un second démarrage renvoie **409**. |
-| **O2** | `POST /sessions/:id/stop` verrouille la session et refuse tout statut autre que `en_cours`/`pause` : plus de double encaissement ni de poste libéré par erreur. |
-| **O3** | Les recettes du dashboard sont calculées depuis `transactions` : `encaissements − remboursements`. L'encaissement est enregistré au démarrage, le remboursement à l'arrêt. Toutes les connexions PostgreSQL sont réglées sur `Indian/Antananarivo` (`APP_TIMEZONE`) : la journée de caisse n'est plus décalée par l'UTC. |
-| **O4** | `GET /comptes` : admin = tous, boss = son compte + ses jetons, jeton = 403. `requireRoles` sur les écritures et sur les sessions, `meta.roles` sur **toutes** les routes front. |
-| **O5** | Pause refusée si la session n'est pas `en_cours`, reprise refusée hors pause. Le temps affiché est calculé serveur en déduisant les pauses (y compris la pause ouverte) : il ne court plus pendant une pause et les durées fantaisistes (3333 h) disparaissent. |
-| **O6** | Job de maintenance : à chaque démarrage puis toutes les 5 minutes, les sessions actives antérieures à la dernière heure de fermeture sont clôturées, les pauses refermées, les postes libérés et les sessions marquées **à vérifier**. Écran dédié dans Sessions + bannière dashboard. Les deux sessions fantômes de juin ont été clôturées et signalées. |
-| **O7** | Types de modèles alignés (`fraction`, `pourcentage`, `fixe_journalier`, `pourcentage_seuil`) avec contrainte SQL, validation API, seuils réellement appliqués au calcul des rémunérations, 1/3 stocké `0.3333` (`DECIMAL(12,4)`) et non 33 %. |
-| **O8** | `PUT` et `DELETE` ajoutés pour salles, postes, jeux, tarifications, comptes, modèles de paiement. Suppressions logiques (sauf tarifs/modèles), refus si session active ou données référencées. |
-| **O9** | Pagination serveur des sessions (`limit`/`offset`, max 200, en-tête `X-Total-Count`), compteur `/sessions/count`, listes secondaires bornées (`LIMIT`) et index ajoutés. |
-| **O10** | JWT 8 h, refresh transparent, révocation serveur par `token_version` (logout, désactivation, reset de mot de passe). Stockage `localStorage` conservé mais risque résiduel documenté. |
-| **O11** | Dédoublonnage des postes existants (`FAT #2`, `FAT #3`, `slim #2`) puis index unique `(salle_id, lower(nom_poste))` sur les postes actifs. L'API renvoie 409 sur un doublon. |
-| **O12** | « Postes les plus utilisés » et « Jeux populaires » utilisent `HAVING COUNT(...) > 0`. |
-| **O13** | socket.io réellement branché : serveur authentifié par JWT, événements `session:changed`, `postes:changed`, `sessions:refresh` ; le front se reconnecte avec `socket.io-client`. |
-| **O14** | Dépendance socket.io utilisée, migrations SQL versionnées (`npm run migrate`), journal d'audit et healthcheck enrichi. Les tests automatisés et la CI restent à faire (voir « Reste à faire »). |
+| Réf     | Correction                                                                                                                                                                                                                                                                                                                                                |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **O1**  | Démarrage de session dans une transaction avec verrou `FOR UPDATE` sur le poste + index unique partiel `sessions_jeux_active_poste_uniq` (une seule session `en_cours`/`pause` par poste). Un second démarrage renvoie **409**.                                                                                                                           |
+| **O2**  | `POST /sessions/:id/stop` verrouille la session et refuse tout statut autre que `en_cours`/`pause` : plus de double encaissement ni de poste libéré par erreur.                                                                                                                                                                                           |
+| **O3**  | Les recettes du dashboard sont calculées depuis `transactions` : `encaissements − remboursements`. L'encaissement est enregistré au démarrage, le remboursement à l'arrêt. Toutes les connexions PostgreSQL sont réglées sur `Indian/Antananarivo` (`APP_TIMEZONE`) : la journée de caisse n'est plus décalée par l'UTC.                                  |
+| **O4**  | `GET /comptes` : admin = tous, boss = son compte + ses jetons, jeton = 403. `requireRoles` sur les écritures et sur les sessions, `meta.roles` sur **toutes** les routes front.                                                                                                                                                                           |
+| **O5**  | Pause refusée si la session n'est pas `en_cours`, reprise refusée hors pause. Le temps affiché est calculé serveur en déduisant les pauses (y compris la pause ouverte) : il ne court plus pendant une pause et les durées fantaisistes (3333 h) disparaissent.                                                                                           |
+| **O6**  | Job de maintenance : à chaque démarrage puis toutes les 5 minutes, les sessions actives antérieures à la dernière heure de fermeture sont clôturées, les pauses refermées, les postes libérés et les sessions marquées **à vérifier**. Écran dédié dans Sessions + bannière dashboard. Les deux sessions fantômes de juin ont été clôturées et signalées. |
+| **O7**  | Types de modèles alignés (`fraction`, `pourcentage`, `fixe_journalier`, `pourcentage_seuil`) avec contrainte SQL, validation API, seuils réellement appliqués au calcul des rémunérations, 1/3 stocké `0.3333` (`DECIMAL(12,4)`) et non 33 %.                                                                                                             |
+| **O8**  | `PUT` et `DELETE` ajoutés pour salles, postes, jeux, tarifications, comptes, modèles de paiement. Suppressions logiques (sauf tarifs/modèles), refus si session active ou données référencées.                                                                                                                                                            |
+| **O9**  | Pagination serveur des sessions (`limit`/`offset`, max 200, en-tête `X-Total-Count`), compteur `/sessions/count`, listes secondaires bornées (`LIMIT`) et index ajoutés.                                                                                                                                                                                  |
+| **O10** | JWT 8 h, refresh transparent, révocation serveur par `token_version` (logout, désactivation, reset de mot de passe). Stockage `localStorage` conservé mais risque résiduel documenté.                                                                                                                                                                     |
+| **O11** | Dédoublonnage des postes existants (`FAT #2`, `FAT #3`, `slim #2`) puis index unique `(salle_id, lower(nom_poste))` sur les postes actifs. L'API renvoie 409 sur un doublon.                                                                                                                                                                              |
+| **O12** | « Postes les plus utilisés » et « Jeux populaires » utilisent `HAVING COUNT(...) > 0`.                                                                                                                                                                                                                                                                    |
+| **O13** | socket.io réellement branché : serveur authentifié par JWT, événements `session:changed`, `postes:changed`, `sessions:refresh` ; le front se reconnecte avec `socket.io-client`.                                                                                                                                                                          |
+| **O14** | Dépendance socket.io utilisée, migrations SQL versionnées (`npm run migrate`), journal d'audit et healthcheck enrichi. Les tests automatisés et la CI restent à faire (voir « Reste à faire »).                                                                                                                                                           |
 
 Les bugs **F1–F10** (Notify/Dialog, redirection 401, erreurs réseau, `PORT`,
 login pré-rempli, statut de poste réactif, rafraîchissement abonnements,
@@ -192,15 +194,15 @@ nouveaux écrans.
 
 Voir `backend/.env.example` :
 
-| Variable | Défaut | Rôle |
-| --- | --- | --- |
-| `PORT` | `3000` | Port HTTP (une valeur vide retombe sur 3000) |
-| `JWT_SECRET` | — | Secret de signature (à changer impérativement) |
-| `JWT_EXPIRES_IN` | `8h` | Durée du jeton |
-| `APP_TIMEZONE` | `Indian/Antananarivo` | Fuseau métier (connexions PostgreSQL) |
-| `CLOSING_HOUR` | `23` | Heure de clôture automatique |
-| `MAINTENANCE_INTERVAL_MINUTES` | `5` | Fréquence du job de clôture |
-| `CORS_ORIGIN` | `*` | Origines autorisées (REST + socket.io) |
+| Variable                       | Défaut                | Rôle                                           |
+| ------------------------------ | --------------------- | ---------------------------------------------- |
+| `PORT`                         | `3000`                | Port HTTP (une valeur vide retombe sur 3000)   |
+| `JWT_SECRET`                   | —                     | Secret de signature (à changer impérativement) |
+| `JWT_EXPIRES_IN`               | `8h`                  | Durée du jeton                                 |
+| `APP_TIMEZONE`                 | `Indian/Antananarivo` | Fuseau métier (connexions PostgreSQL)          |
+| `CLOSING_HOUR`                 | `23`                  | Heure de clôture automatique                   |
+| `MAINTENANCE_INTERVAL_MINUTES` | `5`                   | Fréquence du job de clôture                    |
+| `CORS_ORIGIN`                  | `*`                   | Origines autorisées (REST + socket.io)         |
 
 ## Architecture backend (MVC)
 
@@ -212,16 +214,69 @@ Voir `backend/.env.example` :
 - `backend/src/realtime.js` : socket.io
 - `backend/src/utils` : erreurs HTTP, audit, formatage
 
+## Abonnement SaaS (P2.11)
+
+Le logiciel est vendu **30 000 Ar / mois** par salle, avec **7 jours d'essai
+offert à la création du compte boss**. Le paiement est **manuel**, aucun
+prélèvement automatique n'est effectué par l'application.
+
+1. Le boss envoie 30 000 Ar par Mobile Money sur l'un des deux numéros
+   (0389145273 — Orange Money, 0375441549 — MVola/Orange Money), au nom de
+   `RANAIVO Andry Ny Avo Onenantsoa`.
+2. Il déclare la référence de transaction dans **Mon abonnement**
+   (`POST /api/mon-abonnement/demandes`).
+3. L'administrateur vérifie l'encaissement puis active 30 jours depuis
+   **Abonnements SaaS** (`POST /api/abonnements/demandes/:id/valider`) ou
+   manuellement (`POST /api/abonnements`). La nouvelle période s'ajoute à la
+   suite de la précédente, sans trou ni chevauchement.
+
+- `GET /api/mon-abonnement` : état (essai / actif / expiré), historique,
+  demandes et notifications. Toujours accessible, même expiré, pour pouvoir
+  payer.
+- `GET /api/abonnements` : vue plateforme (boss, échéances, demandes, revenus).
+- Middleware `requireSubscription` : hors `admin`, toute route métier renvoie
+  **402 `ABONNEMENT_EXPIRE`** dès que l'échéance est dépassée ; le frontend
+  redirige alors vers l'espace de paiement.
+- Relances automatiques in-app à J-7, J-3, J-1 et à l'expiration
+  (`relances_abonnement`, idempotentes).
+- Isolation multi-tenant (`backend/src/utils/tenant.js`) : chaque lecture métier
+  filtre sur `boss_id`, les ressources d'autrui renvoient 404.
+
+## Tournois (P2.12)
+
+Tous les tournois sont en **élimination directe**. Après la clôture des
+inscriptions, le tableau est généré à la puissance de 2 supérieure (les exempts
+sont qualifiés automatiquement), les scores se saisissent match par match et le
+vainqueur remonte au tour suivant jusqu'au champion affiché.
+
+## PWA et hors-ligne (P2.13)
+
+`npm run dev:pwa` / `npm run build:pwa`. Le service worker precache l'app shell
+et met en cache les `GET /api/*` (NetworkFirst, 4 s, 24 h). Les mutations ne sont
+jamais interceptées : aucune opération de caisse n'est rejouée hors ligne.
+
+## Réactivité de l'interface
+
+- Les pages sont **préchargées** après la première navigation (`router/index.js`,
+  `requestIdleCallback`) : cliquer un menu ne télécharge plus son module.
+- Les rafraîchissements déclenchés par socket ou par une action sont
+  **silencieux** (`refresh({ silent: true })`) : plus d'overlay de chargement
+  sur le tableau à chaque pause/arrêt.
+- Le tableau de bord n'a plus de tick à 1 s : le temps joué est calculé par le
+  serveur, un rafraîchissement toutes les 30 s suffit (0 tâche longue au repos).
+- Transition de page réduite à 160 ms, sans déplacement vertical.
+- `requireSubscription` met en cache l'état d'abonnement **30 s** par boss et
+  l'invalide dès une validation/activation : une requête SQL en moins par appel
+  (et une de moins par écran, qui en enchaine plusieurs).
+- La page de démonstration `/ui-kit` (« Design system » dans le menu) a été
+  retirée : elle n'apportait rien en production et ses animations tournaient en
+  permanence. Le design system reste décrit dans `DESIGN.md` et dans
+  `src/components/ui/`.
+
 ## Reste à faire (non livré dans cette passe)
 
-- **P2.11** multi-tenant complet (isolation de toutes les lectures par boss,
-  échéances d'abonnement et relance automatique). Le cloisonnement des comptes
-  est en place ; les salles/postes restent visibles en lecture.
-- **P2.12** déroulement complet des tournois (tableau final) : l'UI s'arrête
-  toujours aux inscriptions.
-- **P2.13** PWA / mode hors-ligne.
-- **P2.14** courbe de recette 7/30 jours (le graphique actuel reste un
-  classement par salle).
 - **P3.15** tests Vitest/Playwright, CI GitHub Actions et sauvegardes
   automatisées. Les migrations versionnées sont, elles, livrées.
 - Migration du JWT de `localStorage` vers un cookie `httpOnly`.
+- Inscription publique self-service d'un boss (aujourd'hui le compte est créé par
+  l'administrateur, l'essai de 7 jours démarre à la création).

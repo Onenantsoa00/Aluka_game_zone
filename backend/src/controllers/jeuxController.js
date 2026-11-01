@@ -84,7 +84,12 @@ export async function postTarification(req, res) {
 
   let row
   try {
-    row = await createTarification({ consoleId, dureeMinutes: duree, prix: montant })
+    row = await createTarification({
+      consoleId,
+      dureeMinutes: duree,
+      prix: montant,
+      bossId: req.user.role === 'boss' ? req.user.tenantId : null,
+    })
   } catch (error) {
     throw translateDbError(error)
   }
@@ -99,9 +104,22 @@ export async function postTarification(req, res) {
   return res.status(201).json(row)
 }
 
+function assertTarifAccess(user, tarif) {
+  if (tarif.boss_id == null) {
+    if (user.role !== 'admin') {
+      throw httpError(403, 'Ce tarif est un modèle plateforme : dupliquez-le pour le modifier')
+    }
+    return
+  }
+  if (Number(tarif.boss_id) !== Number(user.tenantId)) {
+    throw httpError(404, 'Tarification introuvable')
+  }
+}
+
 export async function putTarification(req, res) {
   const tarif = await findTarificationById(req.params.id)
   if (!tarif) throw httpError(404, 'Tarification introuvable')
+  assertTarifAccess(req.user, tarif)
   const duree = req.body.dureeMinutes === undefined ? null : Number(req.body.dureeMinutes)
   const prix = req.body.prix === undefined ? null : Number(req.body.prix)
   if (duree !== null && (!Number.isFinite(duree) || duree <= 0 || duree > 1440)) {
@@ -129,6 +147,7 @@ export async function putTarification(req, res) {
 export async function deleteTarificationController(req, res) {
   const tarif = await findTarificationById(req.params.id)
   if (!tarif) throw httpError(404, 'Tarification introuvable')
+  assertTarifAccess(req.user, tarif)
   const row = await deleteTarification(tarif.id)
   await logAudit({
     userId: req.user.id,
@@ -142,6 +161,6 @@ export async function deleteTarificationController(req, res) {
 }
 
 export async function getTarifications(req, res) {
-  const rows = await listTarificationsByConsole(req.params.consoleId)
+  const rows = await listTarificationsByConsole(req.params.consoleId, req.user.tenantId)
   return res.json(rows)
 }

@@ -1,7 +1,16 @@
 import { query } from '../config/db.js'
 
-export async function listModeles() {
-  const { rows } = await query('SELECT * FROM modeles_paiement_jeton ORDER BY id ASC LIMIT 500')
+export async function listModeles(tenantId = null) {
+  const params = []
+  let where = ''
+  if (tenantId !== null && tenantId !== undefined) {
+    params.push(tenantId)
+    where = `WHERE (boss_id IS NULL OR boss_id = $${params.length})`
+  }
+  const { rows } = await query(
+    `SELECT * FROM modeles_paiement_jeton ${where} ORDER BY (boss_id IS NULL), id ASC LIMIT 500`,
+    params,
+  )
   return rows
 }
 
@@ -10,11 +19,19 @@ export async function findModeleById(id) {
   return rows[0]
 }
 
-export async function createModele({ nomModele, typeModele, valeur, seuil, description }) {
+export async function createModele({
+  nomModele,
+  typeModele,
+  valeur,
+  seuil,
+  description,
+  bossId = null,
+}) {
   const { rows } = await query(
-    `INSERT INTO modeles_paiement_jeton (nom_modele, type_modele, valeur, seuil, description)
-     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [nomModele, typeModele, valeur, seuil ?? null, description || null],
+    `INSERT INTO modeles_paiement_jeton
+       (nom_modele, type_modele, valeur, seuil, description, boss_id)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [nomModele, typeModele, valeur, seuil ?? null, description || null, bossId],
   )
   return rows[0]
 }
@@ -57,15 +74,22 @@ export async function countAffectationsForModele(modeleId) {
   return rows[0].total
 }
 
-export async function listAffectations() {
+export async function listAffectations(tenantId = null) {
+  const params = []
+  let scope = ''
+  if (tenantId !== null && tenantId !== undefined) {
+    params.push(tenantId)
+    scope = `AND u.cree_par = $${params.length}`
+  }
   const { rows } = await query(
     `SELECT a.*, u.nom AS jeton_nom, m.nom_modele, m.type_modele, m.valeur, m.seuil
      FROM affectation_paiement_jeton a
      JOIN utilisateurs u ON u.id=a.jeton_id
      JOIN modeles_paiement_jeton m ON m.id=a.modele_id
-     WHERE a.actif=TRUE
+     WHERE a.actif=TRUE ${scope}
      ORDER BY a.id DESC
      LIMIT 500`,
+    params,
   )
   return rows
 }
@@ -84,7 +108,13 @@ export async function createAffectation({ jetonId, modeleId }) {
 }
 
 /** Recette nette (encaissements - remboursements) par operateur sur une periode. */
-export async function recetteParJeton(dateDebut, dateFin) {
+export async function recetteParJeton(dateDebut, dateFin, tenantId = null) {
+  const params = [dateDebut, dateFin]
+  let scope = ''
+  if (tenantId !== null && tenantId !== undefined) {
+    params.push(tenantId)
+    scope = `WHERE u.cree_par = $${params.length}`
+  }
   const { rows } = await query(
     `SELECT u.id AS jeton_id, u.nom AS jeton_nom,
             COALESCE(SUM(CASE WHEN t.type_transaction='encaissement' THEN t.montant
@@ -95,9 +125,10 @@ export async function recetteParJeton(dateDebut, dateFin) {
      LEFT JOIN sessions_jeux sj ON sj.jeton_id=u.id
      LEFT JOIN transactions t ON t.session_id=sj.id
        AND t.date_transaction::date BETWEEN $1::date AND $2::date
+     ${scope}
      GROUP BY u.id
      ORDER BY u.nom`,
-    [dateDebut, dateFin],
+    params,
   )
   return rows
 }

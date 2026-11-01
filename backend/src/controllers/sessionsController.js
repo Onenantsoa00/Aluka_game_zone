@@ -22,6 +22,7 @@ import {
 } from '../models/sessionsModel.js'
 import { clientIp, logAudit } from '../utils/audit.js'
 import { httpError } from '../utils/errors.js'
+import { assertTenant, bossIdForPoste, bossIdForSession } from '../utils/tenant.js'
 
 const ACTIVE_STATUSES = ['en_cours', 'pause']
 const ALLOWED_STATUSES = ['en_cours', 'pause', 'terminee', 'annulee']
@@ -36,22 +37,22 @@ export async function getSessions(req, res) {
     req.query.aVerifier === 'true' || req.query.aVerifier === '1' ? true : null
 
   const [rows, total] = await Promise.all([
-    listSessions({ limit, offset, statut, aVerifier }),
-    countSessions({ statut, aVerifier }),
+    listSessions({ limit, offset, statut, aVerifier, tenantId: req.user.tenantId }),
+    countSessions({ statut, aVerifier, tenantId: req.user.tenantId }),
   ])
   res.set('X-Total-Count', String(total))
   return res.json(rows)
 }
 
 /** Ecran « sessions a verifier » (P0.5). */
-export async function getSessionsAVerifier(_req, res) {
-  const rows = await listSessions({ aVerifier: true, limit: 100 })
+export async function getSessionsAVerifier(req, res) {
+  const rows = await listSessions({ aVerifier: true, limit: 100, tenantId: req.user.tenantId })
   return res.json(rows)
 }
 
 export async function getSessionsCount(req, res) {
   const statut = ALLOWED_STATUSES.includes(req.query.statut) ? req.query.statut : null
-  const total = await countSessions({ statut })
+  const total = await countSessions({ statut, tenantId: req.user.tenantId })
   return res.json({ total })
 }
 
@@ -63,6 +64,9 @@ export async function startSession(req, res) {
   if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 1440) {
     throw httpError(400, 'Minutes payees invalides (1 a 1440)')
   }
+
+  const bossId = await bossIdForPoste(posteId)
+  assertTenant(req.user, bossId, 'Poste')
 
   const session = await withTransaction(async (client) => {
     const poste = await lockPoste(client, posteId)
@@ -118,12 +122,14 @@ export async function startSession(req, res) {
     ip: clientIp(req),
   })
 
-  emitEvent('session:changed', { type: 'start', sessionId: session.id, posteId })
-  emitEvent('postes:changed', { posteId, statut: 'occupe' })
+  emitEvent('session:changed', { type: 'start', sessionId: session.id, posteId }, bossId)
+  emitEvent('postes:changed', { posteId, statut: 'occupe' }, bossId)
   return res.status(201).json(session)
 }
 
 export async function pauseCurrentSession(req, res) {
+  const bossId = await bossIdForSession(req.params.id)
+  assertTenant(req.user, bossId, 'Session')
   const row = await pauseSession(req.params.id)
   await logAudit({
     userId: req.user.id,
@@ -132,12 +138,14 @@ export async function pauseCurrentSession(req, res) {
     entiteId: row.id,
     ip: clientIp(req),
   })
-  emitEvent('session:changed', { type: 'pause', sessionId: row.id, posteId: row.poste_id })
-  emitEvent('postes:changed', { posteId: row.poste_id, statut: 'pause' })
+  emitEvent('session:changed', { type: 'pause', sessionId: row.id, posteId: row.poste_id }, bossId)
+  emitEvent('postes:changed', { posteId: row.poste_id, statut: 'pause' }, bossId)
   return res.json(row)
 }
 
 export async function resumeCurrentSession(req, res) {
+  const bossId = await bossIdForSession(req.params.id)
+  assertTenant(req.user, bossId, 'Session')
   const row = await resumeSession(req.params.id)
   await logAudit({
     userId: req.user.id,
@@ -146,14 +154,16 @@ export async function resumeCurrentSession(req, res) {
     entiteId: row.id,
     ip: clientIp(req),
   })
-  emitEvent('session:changed', { type: 'resume', sessionId: row.id, posteId: row.poste_id })
-  emitEvent('postes:changed', { posteId: row.poste_id, statut: 'occupe' })
+  emitEvent('session:changed', { type: 'resume', sessionId: row.id, posteId: row.poste_id }, bossId)
+  emitEvent('postes:changed', { posteId: row.poste_id, statut: 'occupe' }, bossId)
   return res.json(row)
 }
 
 export async function stopSession(req, res) {
   const { coupureElectricite = false } = req.body || {}
   const sessionId = req.params.id
+  const bossId = await bossIdForSession(sessionId)
+  assertTenant(req.user, bossId, 'Session')
 
   const { updated, montantARendre, montantTotal } = await withTransaction(async (client) => {
     const session = await lockSession(client, sessionId)
@@ -220,12 +230,16 @@ export async function stopSession(req, res) {
     ip: clientIp(req),
   })
 
-  emitEvent('session:changed', {
-    type: 'stop',
-    sessionId: updated.id,
-    posteId: updated.poste_id,
-  })
-  emitEvent('postes:changed', { posteId: updated.poste_id, statut: 'libre' })
+  emitEvent(
+    'session:changed',
+    {
+      type: 'stop',
+      sessionId: updated.id,
+      posteId: updated.poste_id,
+    },
+    bossId,
+  )
+  emitEvent('postes:changed', { posteId: updated.poste_id, statut: 'libre' }, bossId)
   return res.json(updated)
 }
 
@@ -238,6 +252,8 @@ export async function addSessionPaymentController(req, res) {
   if (!Number.isFinite(montant) || montant <= 0) {
     throw httpError(400, 'Montant invalide')
   }
+  const bossId = await bossIdForSession(req.params.id)
+  assertTenant(req.user, bossId, 'Session')
   const row = await addSessionPayment(req.params.id, montant, req.user.id)
   await logAudit({
     userId: req.user.id,
@@ -247,7 +263,7 @@ export async function addSessionPaymentController(req, res) {
     details: { montant },
     ip: clientIp(req),
   })
-  emitEvent('session:changed', { type: 'payment', sessionId: row.id, posteId: row.poste_id })
+  emitEvent('session:changed', { type: 'payment', sessionId: row.id, posteId: row.poste_id }, bossId)
   return res.json(row)
 }
 
@@ -257,6 +273,8 @@ export async function extendSession(req, res) {
   if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 1440) {
     throw httpError(400, 'Minutes invalides (1 a 1440)')
   }
+  const bossId = await bossIdForSession(req.params.id)
+  assertTenant(req.user, bossId, 'Session')
 
   const { updated, montant } = await withTransaction(async (client) => {
     const session = await lockSession(client, req.params.id)
@@ -288,12 +306,18 @@ export async function extendSession(req, res) {
     details: { minutes, montant },
     ip: clientIp(req),
   })
-  emitEvent('session:changed', { type: 'extend', sessionId: updated.id, posteId: updated.poste_id })
+  emitEvent(
+    'session:changed',
+    { type: 'extend', sessionId: updated.id, posteId: updated.poste_id },
+    bossId,
+  )
   return res.json({ ...updated, montant_ajoute: montant })
 }
 
 /** Acquitte une session cloturee automatiquement (P0.5). */
 export async function verifySessionController(req, res) {
+  const bossId = await bossIdForSession(req.params.id)
+  assertTenant(req.user, bossId, 'Session')
   const row = await verifySession(req.params.id, req.user.id)
   await logAudit({
     userId: req.user.id,
@@ -302,6 +326,6 @@ export async function verifySessionController(req, res) {
     entiteId: row.id,
     ip: clientIp(req),
   })
-  emitEvent('session:changed', { type: 'verify', sessionId: row.id })
+  emitEvent('session:changed', { type: 'verify', sessionId: row.id }, bossId)
   return res.json(row)
 }

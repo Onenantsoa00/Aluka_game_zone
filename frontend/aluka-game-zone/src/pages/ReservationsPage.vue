@@ -254,8 +254,9 @@ const reservationLabel = (statut) =>
 const reservationTone = (statut) =>
   ({ reservee: 'info', honoree: 'ok', annulee: 'danger', expiree: 'neutral' })[statut] || 'neutral'
 
-async function refresh() {
-  loading.value = true
+/** `silent` : rechargement apres une action, sans overlay de chargement. */
+async function refresh({ silent = false } = {}) {
+  if (!silent) loading.value = true
   try {
     const [f, r, p, s, j] = await Promise.all([
       api.get('/file-attente'),
@@ -275,7 +276,7 @@ async function refresh() {
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -292,7 +293,7 @@ async function addFile() {
   try {
     await api.post('/file-attente', fileForm.value)
     fileForm.value = { salleId: null, jeuId: null, nomJoueur: '', telephone: '' }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Joueur ajouté à la file' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -304,7 +305,7 @@ async function addFile() {
 async function setFileStatut(id, statut) {
   try {
     await api.patch(`/file-attente/${id}/statut`, { statut })
-    await refresh()
+    await refresh({ silent: true })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   }
@@ -313,7 +314,7 @@ async function setFileStatut(id, statut) {
 async function removeFile(row) {
   try {
     await api.delete(`/file-attente/${row.id}`)
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'warning', message: 'Entrée supprimée' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -335,7 +336,7 @@ async function addReservation() {
       fin: '',
       montant: 0,
     }
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'positive', message: 'Réservation enregistrée' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
@@ -347,7 +348,7 @@ async function addReservation() {
 async function setReservationStatut(id, statut) {
   try {
     await api.patch(`/reservations/${id}/statut`, { statut })
-    await refresh()
+    await refresh({ silent: true })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   }
@@ -356,7 +357,7 @@ async function setReservationStatut(id, statut) {
 async function removeReservation(row) {
   try {
     await api.delete(`/reservations/${row.id}`)
-    await refresh()
+    await refresh({ silent: true })
     Notify.create({ type: 'warning', message: 'Réservation supprimée' })
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })

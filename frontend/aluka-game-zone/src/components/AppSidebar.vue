@@ -40,16 +40,6 @@
       <q-btn
         flat
         dense
-        icon="palette"
-        label="Design system"
-        class="btn-subtle full-width"
-        style="justify-content: flex-start"
-        to="/ui-kit"
-        @click="closeSidebar"
-      />
-      <q-btn
-        flat
-        dense
         icon="logout"
         class="btn-subtle"
         aria-label="Se déconnecter"
@@ -66,10 +56,12 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth-store'
 import { useUiStore } from 'src/stores/ui-store'
+import { useBillingStore } from 'src/stores/billing-store'
 import { closeRealtime } from 'src/services/realtime'
 
 const auth = useAuthStore()
 const ui = useUiStore()
+const billing = useBillingStore()
 const router = useRouter()
 
 const navGroups = [
@@ -111,7 +103,13 @@ const navGroups = [
       { to: '/comptes', label: 'Comptes', icon: 'groups', roles: ['admin', 'boss'] },
       { to: '/paiements', label: 'Paiements jeton', icon: 'payments', roles: ['admin', 'boss'] },
       { to: '/caisse', label: 'Caisse (Z)', icon: 'point_of_sale', roles: ['admin', 'boss'] },
-      { to: '/abonnements', label: 'Abonnements', icon: 'card_membership', roles: ['admin'] },
+      { to: '/mon-abonnement', label: 'Mon abonnement', icon: 'card_membership', roles: ['boss'] },
+      {
+        to: '/abonnements',
+        label: 'Abonnements SaaS',
+        icon: 'workspace_premium',
+        roles: ['admin'],
+      },
       { to: '/audit', label: "Journal d'audit", icon: 'history', roles: ['admin'] },
     ],
   },
@@ -121,7 +119,13 @@ const groups = computed(() => {
   const role = auth.user?.role || 'jeton'
   return navGroups.map((group) => ({
     label: group.label,
-    items: group.items.filter((item) => item.roles.includes(role)),
+    items: group.items
+      .filter((item) => item.roles.includes(role))
+      .map((item) =>
+        item.to === '/mon-abonnement' && billing.nonLues
+          ? { ...item, badge: billing.nonLues }
+          : item,
+      ),
   }))
 })
 
@@ -142,6 +146,7 @@ const initials = computed(() => {
 
 function logout() {
   auth.logout()
+  billing.reset()
   closeRealtime()
   ui.closeSidebar()
   router.push('/login')

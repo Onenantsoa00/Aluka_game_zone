@@ -21,6 +21,7 @@
           <span class="feature"><q-icon name="bolt" /> Sessions en direct</span>
           <span class="feature"><q-icon name="payments" /> Recettes consolidées</span>
           <span class="feature"><q-icon name="shield" /> Rôles admin / boss / jeton</span>
+          <span class="feature"><q-icon name="cloud_off" /> Mode hors ligne (PWA)</span>
         </div>
       </div>
 
@@ -79,8 +80,8 @@
         </q-form>
 
         <div class="meta">
-          <q-icon name="info" size="14px" />
-          Comptes de démonstration : admin, boss1, jeton1
+          <q-icon name="card_giftcard" size="14px" />
+          7 jours d’essai offert à la création de votre salle — sans engagement.
         </div>
       </motion.div>
     </div>
@@ -93,10 +94,12 @@ import { Notify } from 'quasar'
 import { motion } from 'motion-v'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth-store'
+import { useBillingStore } from 'src/stores/billing-store'
 import { UiButton } from 'src/components/ui'
 
 const router = useRouter()
 const auth = useAuthStore()
+const billing = useBillingStore()
 
 const username = ref('')
 const motDePasse = ref('')
@@ -111,7 +114,9 @@ async function submit() {
   loading.value = true
   try {
     await auth.login(username.value, motDePasse.value)
-    await router.push('/dashboard')
+    if (auth.isBoss) await billing.load({ silent: true })
+    const expired = auth.isBoss && auth.abonnement && auth.abonnement.actif === false
+    await router.push(expired ? '/mon-abonnement' : '/dashboard')
   } catch (error) {
     Notify.create({ type: 'negative', message: error.message })
   } finally {

@@ -1,4 +1,5 @@
 import { query } from '../config/db.js'
+import { tenantFilter } from '../utils/tenant.js'
 
 const RESERVATION_SELECT = `
   SELECT r.*, p.nom_poste, s.nom AS salle_nom, c.nom AS console_nom
@@ -8,7 +9,7 @@ const RESERVATION_SELECT = `
   JOIN consoles c ON c.id=p.console_id
 `
 
-export async function listReservations({ date = null, statut = null, limit = 100 } = {}) {
+export async function listReservations({ date = null, statut = null, tenantId = null, limit = 100 } = {}) {
   const params = []
   const where = []
   if (date) {
@@ -19,15 +20,27 @@ export async function listReservations({ date = null, statut = null, limit = 100
     params.push(statut)
     where.push(`r.statut = $${params.length}`)
   }
+  where.push(tenantFilter(params, tenantId))
   params.push(limit)
   const { rows } = await query(
     `${RESERVATION_SELECT}
-     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     WHERE ${where.join(' AND ')}
      ORDER BY r.debut ASC
      LIMIT $${params.length}`,
     params,
   )
   return rows
+}
+
+export async function findReservationBossId(id) {
+  const { rows } = await query(
+    `SELECT s.boss_id FROM reservations r
+     JOIN postes p ON p.id=r.poste_id
+     JOIN salles s ON s.id=p.salle_id
+     WHERE r.id=$1`,
+    [id],
+  )
+  return rows[0]?.boss_id ?? null
 }
 
 export async function findConflict({ posteId, debut, fin }) {
@@ -75,29 +88,44 @@ export async function deleteReservation(id) {
 }
 
 const FILE_SELECT = `
-  SELECT f.*, s.nom AS salle_nom, p.nom_poste, j.nom AS jeu_nom
+  SELECT f.*, COALESCE(s.nom, sp.nom) AS salle_nom, p.nom_poste, j.nom AS jeu_nom
   FROM file_attente f
   LEFT JOIN salles s ON s.id=f.salle_id
   LEFT JOIN postes p ON p.id=f.poste_id
+  LEFT JOIN salles sp ON sp.id=p.salle_id
   LEFT JOIN jeux j ON j.id=f.jeu_id
 `
 
-export async function listFileAttente({ statut = null, limit = 100 } = {}) {
+export async function listFileAttente({ statut = null, tenantId = null, limit = 100 } = {}) {
   const params = []
-  let where = ''
+  const where = []
   if (statut) {
     params.push(statut)
-    where = `WHERE f.statut = $${params.length}`
+    where.push(`f.statut = $${params.length}`)
   }
+  where.push(tenantFilter(params, tenantId, 'COALESCE(s.boss_id, sp.boss_id)'))
   params.push(limit)
   const { rows } = await query(
-    `${FILE_SELECT} ${where}
+    `${FILE_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
      ORDER BY CASE f.statut WHEN 'en_attente' THEN 0 WHEN 'appele' THEN 1 ELSE 2 END,
               f.created_at ASC
      LIMIT $${params.length}`,
     params,
   )
   return rows
+}
+
+export async function findFileAttenteBossId(id) {
+  const { rows } = await query(
+    `SELECT COALESCE(s.boss_id, sp.boss_id) AS boss_id
+     FROM file_attente f
+     LEFT JOIN salles s ON s.id=f.salle_id
+     LEFT JOIN postes p ON p.id=f.poste_id
+     LEFT JOIN salles sp ON sp.id=p.salle_id
+     WHERE f.id=$1`,
+    [id],
+  )
+  return rows[0]?.boss_id ?? null
 }
 
 export async function createFileAttente({

@@ -22,7 +22,7 @@ export function initRealtime(httpServer) {
       const token = socket.handshake.auth?.token
       const payload = jwt.verify(token, env.jwtSecret)
       const { rows } = await query(
-        `SELECT u.actif, u.token_version, r.nom AS role
+        `SELECT u.actif, u.token_version, u.cree_par, r.nom AS role
          FROM utilisateurs u JOIN roles r ON r.id=u.role_id
          WHERE u.id=$1`,
         [payload.id],
@@ -31,7 +31,9 @@ export function initRealtime(httpServer) {
       if (!user || !user.actif || (payload.ver ?? 0) !== user.token_version) {
         return next(new Error('unauthorized'))
       }
-      socket.user = { id: payload.id, role: user.role }
+      const tenantId =
+        user.role === 'admin' ? null : user.role === 'boss' ? payload.id : (user.cree_par ?? -1)
+      socket.user = { id: payload.id, role: user.role, tenantId }
       return next()
     } catch {
       return next(new Error('unauthorized'))
@@ -39,14 +41,29 @@ export function initRealtime(httpServer) {
   })
 
   io.on('connection', (socket) => {
-    socket.join('operations')
+    // Chaque connexion rejoint uniquement son perimetre (P2.11) : un boss ne
+    // recoit jamais les evenements d'une autre salle. L'admin rejoint la room
+    // plateforme et voit tous les flux.
+    const tenantId = socket.user?.tenantId
+    socket.join(tenantId ? `boss:${tenantId}` : 'admin')
   })
 
   return io
 }
 
-/** Diffuse un evenement a tous les postes connectes. */
-export function emitEvent(name, payload = {}) {
+/**
+ * Diffuse un evenement au boss concerne et aux admins. `bossId` null = admin
+ * uniquement (une action plateforme ne doit pas fuiter chez les locataires).
+ */
+export function emitEvent(name, payload = {}, bossId = null) {
   if (!io) return
-  io.emit(name, payload)
+  if (bossId == null) {
+    io.to('admin').emit(name, payload)
+    return
+  }
+  io.to(`boss:${bossId}`).to('admin').emit(name, payload)
+}
+
+export function emitToBoss(bossId, name, payload = {}) {
+  emitEvent(name, payload, bossId)
 }

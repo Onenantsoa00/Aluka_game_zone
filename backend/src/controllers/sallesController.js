@@ -9,9 +9,10 @@ import {
 } from '../models/sallesModel.js'
 import { clientIp, logAudit } from '../utils/audit.js'
 import { httpError } from '../utils/errors.js'
+import { assertTenant } from '../utils/tenant.js'
 
-export async function getSalles(_req, res) {
-  const rows = await listSallesActives()
+export async function getSalles(req, res) {
+  const rows = await listSallesActives(req.user.tenantId)
   return res.json(rows)
 }
 
@@ -43,9 +44,7 @@ export async function postSalle(req, res) {
 export async function putSalle(req, res) {
   const salle = await findSalleById(req.params.id)
   if (!salle) throw httpError(404, 'Salle introuvable')
-  if (req.user.role === 'boss' && salle.boss_id !== req.user.id) {
-    throw httpError(403, 'Cette salle ne vous appartient pas')
-  }
+  assertTenant(req.user, salle.boss_id, 'Salle')
   if (req.body.nom !== undefined && !String(req.body.nom).trim()) {
     throw httpError(400, 'Le nom ne peut pas etre vide')
   }
@@ -69,9 +68,7 @@ export async function putSalle(req, res) {
 export async function deleteSalle(req, res) {
   const salle = await findSalleById(req.params.id)
   if (!salle) throw httpError(404, 'Salle introuvable')
-  if (req.user.role === 'boss' && salle.boss_id !== req.user.id) {
-    throw httpError(403, 'Cette salle ne vous appartient pas')
-  }
+  assertTenant(req.user, salle.boss_id, 'Salle')
   const active = await countActiveSessionsInSalle(salle.id)
   if (active > 0) {
     throw httpError(409, 'Des sessions sont encore actives dans cette salle')

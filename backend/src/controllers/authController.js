@@ -7,6 +7,7 @@ import {
   incrementTokenVersion,
 } from '../models/authModel.js'
 import { clientIp, logAudit } from '../utils/audit.js'
+import { getEtatAbonnement } from '../services/abonnement.js'
 
 function signToken(user) {
   return jwt.sign(
@@ -14,6 +15,16 @@ function signToken(user) {
     env.jwtSecret,
     { expiresIn: env.jwtExpiresIn },
   )
+}
+
+function tenantOf(user) {
+  if (user.role === 'admin') return null
+  return user.role === 'boss' ? user.id : (user.cree_par ?? -1)
+}
+
+async function abonnementOf(user) {
+  if (user.role === 'admin') return null
+  return getEtatAbonnement(tenantOf(user))
 }
 
 export async function login(req, res) {
@@ -40,6 +51,7 @@ export async function login(req, res) {
     token: signToken(user),
     expiresIn: env.jwtExpiresIn,
     user: { id: user.id, nom: user.nom, username: user.username, role: user.role },
+    abonnement: await abonnementOf(user),
   })
 }
 
@@ -51,14 +63,18 @@ export async function refresh(req, res) {
     token: signToken(user),
     expiresIn: env.jwtExpiresIn,
     user: { id: user.id, nom: user.nom, username: user.username, role: user.role },
+    abonnement: await abonnementOf(user),
   })
 }
 
 export async function me(req, res) {
   const user = await findUserProfileById(req.user.id)
   if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' })
-  const { token_version: _tokenVersion, ...profile } = user
-  return res.json(profile)
+  const { token_version: _tokenVersion, cree_par: _creePar, ...profile } = user
+  return res.json({
+    ...profile,
+    abonnement: await abonnementOf(user),
+  })
 }
 
 /** Revoque tous les jetons du compte (deconnexion). */
